@@ -1,14 +1,32 @@
 export const base = 25;
 
 
+// Shape types available for bricks
+export const shapeTypes = {
+  RECTANGLE: 'rectangle',
+  SLOPE_45: 'slope45',
+  SLOPE_33: 'slope33',
+  SLOPE_INVERTED: 'slopeInverted',
+  CORNER_INSIDE: 'cornerInside',
+  CORNER_OUTSIDE: 'cornerOutside',
+  CORNER_ROUND: 'cornerRound',
+  CURVE: 'curve',
+  ARCH: 'arch',
+  CYLINDER: 'cylinder',
+  CONE: 'cone',
+  WEDGE: 'wedge',
+  PLATE: 'plate',
+  TILE: 'tile',
+};
+
 export const bricks = [
-  { x: 1, z: 1 },
-  { x: 2, z: 1 },
-  { x: 2, z: 2 },
-  { x: 3, z: 1 },
-  { x: 3, z: 2 },
-  { x: 4, z: 1 },
-  { x: 4, z: 2 },
+  { x: 1, z: 1, type: 'rectangle' },
+  { x: 2, z: 1, type: 'rectangle' },
+  { x: 2, z: 2, type: 'rectangle' },
+  { x: 3, z: 1, type: 'rectangle' },
+  { x: 3, z: 2, type: 'rectangle' },
+  { x: 4, z: 1, type: 'rectangle' },
+  { x: 4, z: 2, type: 'rectangle' },
 ];
 
 

@@ -47,11 +47,30 @@ export function getMeasurementsFromDimensions({ x, y, z }) {
 
 
 export function displayNameFromDimensions(dimensions) {
-  return `${dimensions.x}x${dimensions.z}`;
+  const baseName = `${dimensions.x}x${dimensions.z}`;
+
+  // For non-rectangle shapes, add shape type to display name
+  if (dimensions.type && dimensions.type !== 'rectangle') {
+    const typeLabel = dimensions.type.replace(/([A-Z])/g, ' $1').trim();
+    return `${baseName} ${typeLabel}`;
+  }
+
+  return baseName;
 }
 
 
 export function getBrickIconFromDimensions(dimensions) {
+  // For future shape types, we'll add specific icons here
+  // For now, all shapes use the dimension-based icon
+  const type = dimensions.type || 'rectangle';
+
+  if (type === 'rectangle') {
+    const Icon = Icons[`B${dimensions.x}x${dimensions.z}`];
+    return Icon ? <Icon /> : <Icons.SimpleBrick />;
+  }
+
+  // Placeholder for special shape icons (to be implemented)
+  // Will return shape-specific icons once they're created
   const Icon = Icons[`B${dimensions.x}x${dimensions.z}`];
-  return <Icon />;
+  return Icon ? <Icon /> : <Icons.SimpleBrick />;
 }
