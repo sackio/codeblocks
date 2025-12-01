@@ -65,7 +65,7 @@ class Scene extends React.Component {
     else if (grid !== prevProps.grid && grid !== true) {
       this.grid.visible = false;
     }
-    else if (prevProps.dimensions.x !== dimensions.x || prevProps.dimensions.z !== dimensions.z) {
+    else if (prevProps.dimensions.x !== dimensions.x || prevProps.dimensions.z !== dimensions.z || prevProps.dimensions.type !== dimensions.type) {
       this.rollOverBrick.setShape(dimensions);
     }
 
