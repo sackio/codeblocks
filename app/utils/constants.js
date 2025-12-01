@@ -12,4 +12,14 @@ export const bricks = [
 ];
 
 
-export const colors = ['#FF0000', '#FF9800', '#F0E100', '#00DE00', '#A1BC24', '#0011CF', '#FFFFFF', '#000000', '#652A0C' ];
+export const colors = [
+  { r: 255, g: 0, b: 0, a: 1 },     // Red
+  { r: 255, g: 152, b: 0, a: 1 },   // Orange
+  { r: 240, g: 225, b: 0, a: 1 },   // Yellow
+  { r: 0, g: 222, b: 0, a: 1 },     // Green
+  { r: 161, g: 188, b: 36, a: 1 },  // Olive Green
+  { r: 0, g: 17, b: 207, a: 1 },    // Blue
+  { r: 255, g: 255, b: 255, a: 1 }, // White
+  { r: 0, g: 0, b: 0, a: 1 },       // Black
+  { r: 101, g: 42, b: 12, a: 1 }    // Brown
+];

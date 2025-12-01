@@ -1,5 +1,5 @@
 import React from 'react';
-import { GithubPicker } from 'react-color';
+import { ChromePicker } from 'react-color';
 
 import { SimpleBrick } from 'components/Icons';
 import { colors } from 'utils/constants';
@@ -33,8 +33,8 @@ class ColorPicker extends React.Component {
 
   _handleChangeColor(color) {
     const { handleSetColor } = this.props;
-    handleSetColor(color.hex);
-    this._togglePicker();
+    handleSetColor(color.rgb);
+    this.setState({ background: color.rgb });
   }
 
   _handleClickOutside() {
@@ -63,11 +63,12 @@ class ColorPicker extends React.Component {
           <SimpleBrick color={background} />
         </div>
         <div className={open ? styles.visible : styles.picker} ref={(picker) => this.picker = picker}>
-          <GithubPicker
+          <ChromePicker
             color={background}
-            colors={colors}
+            disableAlpha={false}
             onChangeComplete={this._handleChangeColor}
-            onSwatchHover={(color) => this.setState({ background: color.hex })}
+            onChange={(color) => this.setState({ background: color.rgb })}
+            presetColors={colors}
           />
         </div>
       </div>

@@ -3,29 +3,41 @@ import { base } from './constants';
 import * as Icons from 'components/Icons';
 
 
-export function CSSToHex(cssColor) {
-  return parseInt(`0x${cssColor.substring(1)}`, 16);
+// Convert RGBA color object to THREE.js hex color (0xRRGGBB)
+export function RGBAToHex(rgbaColor) {
+  const { r, g, b } = rgbaColor;
+  return (r << 16) | (g << 8) | b;
 }
 
+// Convert RGBA object to CSS rgba string
+export function RGBAToCSS(rgbaColor) {
+  const { r, g, b, a } = rgbaColor;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
 
-export function shadeColor(color, percent) {
-	let R = parseInt(color.substring(1,3),16);
-  let G = parseInt(color.substring(3,5),16);
-  let B = parseInt(color.substring(5,7),16);
+// Convert RGBA object to hex string
+export function RGBAToHexString(rgbaColor) {
+  const { r, g, b } = rgbaColor;
+  const toHex = (n) => {
+    const hex = n.toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
 
-  R = parseInt(R * (100 + percent) / 100);
-  G = parseInt(G * (100 + percent) / 100);
-  B = parseInt(B * (100 + percent) / 100);
+// Shade an RGBA color by a percentage
+export function shadeColor(rgbaColor, percent) {
+  let { r, g, b, a } = rgbaColor;
 
-  R = (R<255)?R:255;
-  G = (G<255)?G:255;
-  B = (B<255)?B:255;
+  r = parseInt(r * (100 + percent) / 100);
+  g = parseInt(g * (100 + percent) / 100);
+  b = parseInt(b * (100 + percent) / 100);
 
-  let RR = ((R.toString(16).length==1)?"0"+R.toString(16):R.toString(16));
-  let GG = ((G.toString(16).length==1)?"0"+G.toString(16):G.toString(16));
-  let BB = ((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16));
+  r = r < 255 ? r : 255;
+  g = g < 255 ? g : 255;
+  b = b < 255 ? b : 255;
 
-  return "#"+RR+GG+BB;
+  return { r, g, b, a };
 };
 
 

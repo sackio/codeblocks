@@ -2,7 +2,7 @@ import v4 from 'uuid';
 
 import { mergeMeshes, degToRad } from 'utils/threejs';
 import BufferSubdivisionModifier from 'utils/threejs/BufferSubdivisionModifier';
-import { CSSToHex, shadeColor, getMeasurementsFromDimensions } from 'utils';
+import { RGBAToHex, shadeColor, getMeasurementsFromDimensions } from 'utils';
 import { base } from 'utils/constants';
 
 
@@ -12,11 +12,11 @@ const knobSize = 7;
 export default class Brick extends THREE.Mesh {
   constructor(intersect, color, dimensions, rotation, translation) {
     const cubeMaterial = new THREE.MeshStandardMaterial({
-      color: CSSToHex(color),
-      // specular: CSSToHex(shadeColor(color, -20)),
-      // shininess: 5,
+      color: RGBAToHex(color),
       metalness: 0.4,
       roughness: 0.5,
+      transparent: true,
+      opacity: color.a,
     });
     const { height, width, depth } = getMeasurementsFromDimensions(dimensions);
     const props = createMesh(cubeMaterial, width, height, depth, dimensions);
@@ -47,7 +47,10 @@ export default class Brick extends THREE.Mesh {
   }
 
   updateColor(color) {
-    this.material.setValues({ color: CSSToHex(color) });
+    this.material.setValues({
+      color: RGBAToHex(color),
+      opacity: color.a
+    });
     this.defaultColor = this.material.color;
     this._color = color;
   }
