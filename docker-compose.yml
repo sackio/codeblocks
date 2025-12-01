@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: codeblocks-frontend
+    ports:
+      - "9000:80"
+    restart: unless-stopped
+    networks:
+      - codeblocks-network
+
+networks:
+  codeblocks-network:
+    driver: bridge
