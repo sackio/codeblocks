@@ -60,17 +60,37 @@ export function displayNameFromDimensions(dimensions) {
 
 
 export function getBrickIconFromDimensions(dimensions) {
-  // For future shape types, we'll add specific icons here
-  // For now, all shapes use the dimension-based icon
   const type = dimensions.type || 'rectangle';
 
+  // Shape type specific icons
+  const shapeIconMap = {
+    'slope45': 'Slope45Icon',
+    'slope33': 'Slope33Icon',
+    'slopeInverted': 'SlopeInvertedIcon',
+    'cornerInside': 'CornerInsideIcon',
+    'cornerOutside': 'CornerOutsideIcon',
+    'cornerRound': 'CornerRoundIcon',
+    'curve': 'CurveIcon',
+    'arch': 'ArchIcon',
+    'cylinder': 'CylinderIcon',
+    'cone': 'ConeIcon',
+    'wedge': 'WedgeIcon',
+    'plate': 'PlateIcon',
+    'tile': 'TileIcon',
+  };
+
+  // If it's a special shape, return the shape icon
+  if (shapeIconMap[type]) {
+    const ShapeIcon = Icons[shapeIconMap[type]];
+    return ShapeIcon ? <ShapeIcon /> : <Icons.SimpleBrick />;
+  }
+
+  // For rectangles, use dimension-based icons
   if (type === 'rectangle') {
     const Icon = Icons[`B${dimensions.x}x${dimensions.z}`];
     return Icon ? <Icon /> : <Icons.SimpleBrick />;
   }
 
-  // Placeholder for special shape icons (to be implemented)
-  // Will return shape-specific icons once they're created
-  const Icon = Icons[`B${dimensions.x}x${dimensions.z}`];
-  return Icon ? <Icon /> : <Icons.SimpleBrick />;
+  // Default fallback
+  return <Icons.SimpleBrick />;
 }
