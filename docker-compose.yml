@@ -4,13 +4,16 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.frontend
+      dockerfile: Dockerfile.dev
     container_name: codeblocks-frontend
     ports:
-      - "9000:80"
+      - "9000:5000"
     restart: unless-stopped
     networks:
       - codeblocks-network
+    volumes:
+      - ./app:/app/app
+      - ./assets:/app/assets
 
 networks:
   codeblocks-network:

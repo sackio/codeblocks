@@ -38,43 +38,93 @@
 }
 
 
-:local(.picker) {
-  position: absolute;
-  top: (@brick-height + @base-margin + 5px);
-  left: -(@base-margin / 2);
-  padding: @base-padding;
-  background: @secondary-blue;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0px 5px 5px rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
-  border: 1px solid @primary-blue;
+:local(.backdrop) {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
+}
 
-  &:after {
-    content: ' ';
-    position: absolute;
-    top: -(@tip-size);
-    left: @base-margin;
-    border-left: @tip-size solid transparent !important;
-    border-right: @tip-size solid transparent !important;
-    border-bottom-width: @tip-size;
-    border-bottom-style: solid;
-    border-color: @secondary-blue;
+
+:local(.closedBackdrop) {
+  composes: backdrop;
+  opacity: 0;
+  pointer-events: none;
+}
+
+
+:local(.modalWrapper) {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  z-index: 999;
+  opacity: 1;
+  transition: all 0.3s ease-in-out;
+}
+
+
+:local(.closedModal) {
+  composes: modalWrapper;
+  transform: translate(-50%, -50%) scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+}
+
+
+:local(.modal) {
+  background: white;
+  border-radius: 8px;
+  padding: @base-padding * 2;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+
+:local(.close) {
+  position: absolute;
+  top: @base-padding;
+  right: @base-padding;
+  cursor: pointer;
+  font-size: 24px;
+  color: #999;
+
+  &:hover {
+    color: #333;
   }
 }
 
 
+:local(.modalTitle) {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: @base-margin * 2;
+  color: @text-color-primary;
+}
+
+
+:local(.brickGrid) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: @base-margin * 2;
+  justify-content: center;
+  padding: @base-padding;
+}
+
+
 :local(.brickExample) {
-  margin-right: @base-margin;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-
-  &:last-child {
-    margin-right: 0;
-  }
 }
 
 

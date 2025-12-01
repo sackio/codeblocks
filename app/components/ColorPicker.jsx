@@ -1,7 +1,8 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { ChromePicker } from 'react-color';
 
-import { SimpleBrick } from 'components/Icons';
+import { SimpleBrick } from './Icons';
 import { colors } from 'utils/constants';
 
 import styles from 'styles/components/color-picker';
@@ -37,9 +38,9 @@ class ColorPicker extends React.Component {
     this.setState({ background: color.rgb });
   }
 
-  _handleClickOutside() {
+  _handleClickOutside(event) {
     const { background } = this.props;
-    if (this.picker && !this.picker.contains(event.target)) {
+    if (this.modal && !this.modal.contains(event.target)) {
       this.setState({
         open: false,
         background,
@@ -58,20 +59,36 @@ class ColorPicker extends React.Component {
   render() {
     const { background, open } = this.state;
     return (
-      <div className={styles.colorPicker}>
-        <div className={styles.brick} onClick={this._togglePicker}>
-          <SimpleBrick color={background} />
+      <React.Fragment>
+        <div className={styles.colorPicker}>
+          <div className={styles.brick} onClick={this._togglePicker}>
+            <SimpleBrick color={background} />
+          </div>
         </div>
-        <div className={open ? styles.visible : styles.picker} ref={(picker) => this.picker = picker}>
-          <ChromePicker
-            color={background}
-            disableAlpha={false}
-            onChangeComplete={this._handleChangeColor}
-            onChange={(color) => this.setState({ background: color.rgb })}
-            presetColors={colors}
-          />
-        </div>
-      </div>
+        {createPortal(
+          <React.Fragment>
+            <div className={open ? styles.backdrop : styles.closedBackdrop} onClick={this._togglePicker} />
+            <div className={open ? styles.modalWrapper : styles.closedModal}>
+              <div className={styles.modal} ref={(modal) => this.modal = modal}>
+                <div className={styles.close} onClick={this._togglePicker}>
+                  <i className="ion-close" />
+                </div>
+                <div className={styles.modalTitle}>Choose Color</div>
+                <div className={styles.pickerWrapper}>
+                  <ChromePicker
+                    color={background}
+                    disableAlpha={false}
+                    onChangeComplete={this._handleChangeColor}
+                    onChange={(color) => this.setState({ background: color.rgb })}
+                    presetColors={colors}
+                  />
+                </div>
+              </div>
+            </div>
+          </React.Fragment>,
+          document.body
+        )}
+      </React.Fragment>
     );
   }
 }

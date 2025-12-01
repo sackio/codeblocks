@@ -1,5 +1,5 @@
 import React from 'react';
-import If from 'if-only';
+import { createPortal } from 'react-dom';
 import isEqual from 'lodash/isEqual';
 
 import { displayNameFromDimensions, getBrickIconFromDimensions } from 'utils';
@@ -31,28 +31,42 @@ class BrickPicker extends React.Component {
     const { selectedSize, handleSetBrick } = this.props;
     const { open } = this.state;
     return (
-      <div className={styles.brickPicker}>
-        <div className={styles.brick} onClick={this._togglePicker}>
-          <div className={styles.brickIcon}>
-            {getBrickIconFromDimensions(selectedSize)}
+      <React.Fragment>
+        <div className={styles.brickPicker}>
+          <div className={styles.brick} onClick={this._togglePicker}>
+            <div className={styles.brickIcon}>
+              {getBrickIconFromDimensions(selectedSize)}
+            </div>
+            {/* {displayNameFromDimensions(selectedSize)} */}
           </div>
-          {/* {displayNameFromDimensions(selectedSize)} */}
         </div>
-        <If cond={open}>
-          <div className={styles.picker} ref={(picker) => this.picker = picker}>
-            {bricks.map((b, i) => (
-              <div key={i} className={styles.brickExample}>
-                <div className={isEqual(selectedSize, b) ? styles.selected : styles.brickThumb} onClick={() => handleSetBrick(b)}>
-                  {getBrickIconFromDimensions(b)}
+        {createPortal(
+          <React.Fragment>
+            <div className={open ? styles.backdrop : styles.closedBackdrop} onClick={this._togglePicker} />
+            <div className={open ? styles.modalWrapper : styles.closedModal}>
+              <div className={styles.modal} ref={(modal) => this.modal = modal}>
+                <div className={styles.close} onClick={this._togglePicker}>
+                  <i className="ion-close" />
                 </div>
-                <div className={styles.label}>
-                  {displayNameFromDimensions(b)}
+                <div className={styles.modalTitle}>Choose Brick Size</div>
+                <div className={styles.brickGrid}>
+                  {bricks.map((b, i) => (
+                    <div key={i} className={styles.brickExample}>
+                      <div className={isEqual(selectedSize, b) ? styles.selected : styles.brickThumb} onClick={() => handleSetBrick(b)}>
+                        {getBrickIconFromDimensions(b)}
+                      </div>
+                      <div className={styles.label}>
+                        {displayNameFromDimensions(b)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </If>
-      </div>
+            </div>
+          </React.Fragment>,
+          document.body
+        )}
+      </React.Fragment>
     );
   }
 
@@ -62,8 +76,8 @@ class BrickPicker extends React.Component {
     });
   }
 
-  _handleClickOutside() {
-    if (this.picker && !this.picker.contains(event.target)) {
+  _handleClickOutside(event) {
+    if (this.modal && !this.modal.contains(event.target)) {
       this.setState({
         open: false,
       });
