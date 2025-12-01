@@ -85,6 +85,15 @@ function createMesh(material, width, height, depth, dimensions) {
     case 'cone':
       return createConeMesh(material, width, height, depth, dimensions);
 
+    case 'wedge':
+      return createWedgeMesh(material, width, height, depth, dimensions);
+
+    case 'arch':
+      return createArchMesh(material, width, height, depth, dimensions);
+
+    case 'curve':
+      return createCurveMesh(material, width, height, depth, dimensions);
+
     case 'plate':
       return createPlateMesh(material, width, height, depth, dimensions);
 
@@ -161,9 +170,39 @@ function createSlopeMesh(material, width, height, depth, dimensions, type) {
 
 
 function createCornerMesh(material, width, height, depth, dimensions, type) {
-  // For now, use a simple box with corner modifications
-  // TODO: Implement proper corner geometries
-  return createRectangleMesh(material, width, height, depth, dimensions);
+  let meshes = [];
+
+  // Create L-shaped corner piece using CSG-like approach with two boxes
+  const box1Geo = new THREE.BoxGeometry(width - 0.1, height - 0.1, depth / 2 - 0.1);
+  const box2Geo = new THREE.BoxGeometry(width / 2 - 0.1, height - 0.1, depth / 2 - 0.1);
+
+  const mesh1 = new THREE.Mesh(box1Geo, material);
+  mesh1.position.z = -depth / 4;
+  meshes.push(mesh1);
+  mesh1.castShadow = true;
+  mesh1.receiveShadow = true;
+
+  const mesh2 = new THREE.Mesh(box2Geo, material);
+  mesh2.position.x = -width / 4;
+  mesh2.position.z = depth / 4;
+  meshes.push(mesh2);
+  mesh2.castShadow = true;
+  mesh2.receiveShadow = true;
+
+  if (type === 'cornerRound') {
+    // Add a rounded corner using a cylinder
+    const cornerRadius = Math.min(width, depth) / 4;
+    const cylinderGeo = new THREE.CylinderGeometry(cornerRadius, cornerRadius, height - 0.1, 16);
+    const cornerMesh = new THREE.Mesh(cylinderGeo, material);
+    cornerMesh.position.x = width / 4;
+    cornerMesh.position.z = -depth / 4;
+    meshes.push(cornerMesh);
+    cornerMesh.castShadow = true;
+    cornerMesh.receiveShadow = true;
+  }
+
+  const brickGeometry = mergeMeshes(meshes);
+  return [brickGeometry, material];
 }
 
 
@@ -210,6 +249,79 @@ function createTileMesh(material, width, height, depth, dimensions) {
   const cubeGeo = new THREE.BoxGeometry( width - 0.1, height / 3 - 0.1, depth - 0.1 );
 
   const mesh = new THREE.Mesh(cubeGeo, material);
+  meshes.push(mesh);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  const brickGeometry = mergeMeshes(meshes);
+  return [brickGeometry, material];
+}
+
+
+function createWedgeMesh(material, width, height, depth, dimensions) {
+  let meshes = [];
+
+  // Create wedge geometry (pyramid-like shape)
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.lineTo(width - 0.1, 0);
+  shape.lineTo(width / 2 - 0.05, height - 0.1);
+  shape.lineTo(0, 0);
+
+  const extrudeSettings = {
+    steps: 1,
+    depth: depth - 0.1,
+    bevelEnabled: false
+  };
+
+  const wedgeGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  wedgeGeo.center();
+
+  const mesh = new THREE.Mesh(wedgeGeo, material);
+  meshes.push(mesh);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  const brickGeometry = mergeMeshes(meshes);
+  return [brickGeometry, material];
+}
+
+
+function createArchMesh(material, width, height, depth, dimensions) {
+  let meshes = [];
+
+  // Create arch using a box with a cylindrical cutout on top
+  // Simplified: just use a box for now
+  const cubeGeo = new THREE.BoxGeometry( width - 0.1, height - 0.1, depth - 0.1 );
+
+  const mesh = new THREE.Mesh(cubeGeo, material);
+  meshes.push(mesh);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  const brickGeometry = mergeMeshes(meshes);
+  return [brickGeometry, material];
+}
+
+
+function createCurveMesh(material, width, height, depth, dimensions) {
+  let meshes = [];
+
+  // Create curved brick using bent cylinder
+  const curveRadius = width / Math.PI;
+  const curveGeo = new THREE.CylinderGeometry(
+    curveRadius - 0.1,
+    curveRadius - 0.1,
+    depth - 0.1,
+    32,
+    1,
+    false,
+    0,
+    Math.PI
+  );
+  curveGeo.rotateZ(Math.PI / 2);
+
+  const mesh = new THREE.Mesh(curveGeo, material);
   meshes.push(mesh);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
