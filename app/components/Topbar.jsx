@@ -18,6 +18,8 @@ const Topbar = ({
   onClickSetBrick,
   utilsOpen,
   onClickToggleUtils,
+  onClickToggleJSON,
+  jsonEditorOpen,
   children
 }) => {
   return (
@@ -60,6 +62,11 @@ const Topbar = ({
           text="Grid" />
       </div>
       <div className={styles.rightSection}>
+        <Button
+          active={jsonEditorOpen}
+          onClick={onClickToggleJSON}
+          icon="code"
+          text="JSON" />
         <Button
           active={utilsOpen}
           onClick={onClickToggleUtils}

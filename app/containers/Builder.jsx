@@ -26,11 +26,20 @@ import Scene from 'components/engine/Scene';
 import Topbar from 'components/Topbar';
 import Help from 'components/Help';
 import Sidebar from 'components/Sidebar';
+import JSONEditor from 'components/JSONEditor';
 
 import styles from 'styles/containers/builder';
 
 
 class Builder extends React.Component {
+  state = {
+    jsonEditorOpen: false,
+  }
+
+  _toggleJSONEditor = () => {
+    this.setState({ jsonEditorOpen: !this.state.jsonEditorOpen });
+  }
+
   render() {
     const {
       mode,
@@ -50,6 +59,8 @@ class Builder extends React.Component {
       resetScene,
       setScene
     } = this.props;
+    const { jsonEditorOpen } = this.state;
+
     return (
       <div className={styles.builder}>
         <Topbar
@@ -62,7 +73,9 @@ class Builder extends React.Component {
           brickSize={dimensions}
           onClickSetBrick={setBrick}
           utilsOpen={utilsOpen}
-          onClickToggleUtils={toggleUtils}>
+          onClickToggleUtils={toggleUtils}
+          onClickToggleJSON={this._toggleJSONEditor}
+          jsonEditorOpen={jsonEditorOpen}>
           <Sidebar utilsOpen={utilsOpen} resetScene={resetScene} objects={bricks} importScene={setScene} />
         </Topbar>
         <Scene
@@ -75,6 +88,13 @@ class Builder extends React.Component {
           removeObject={removeBrick}
           addObject={addBrick}
           updateObject={updateBrick} />
+        {jsonEditorOpen && (
+          <JSONEditor
+            objects={bricks}
+            loadObjectsFromJSON={setScene}
+            onClose={this._toggleJSONEditor}
+          />
+        )}
         <Help inversed={utilsOpen} />
       </div>
     );

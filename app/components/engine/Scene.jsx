@@ -69,7 +69,7 @@ class Scene extends React.Component {
       this.rollOverBrick.setShape(dimensions);
     }
 
-    if (objects.length !== prevProps.objects.length) {
+    if (objects !== prevProps.objects) {
       this._setObjectsFromState();
     }
   }
