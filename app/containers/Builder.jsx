@@ -27,6 +27,7 @@ import Topbar from 'components/Topbar';
 import Help from 'components/Help';
 import Sidebar from 'components/Sidebar';
 import JSONEditor from 'components/JSONEditor';
+import ScriptEditor from 'components/ScriptEditor';
 
 import styles from 'styles/containers/builder';
 
@@ -34,10 +35,15 @@ import styles from 'styles/containers/builder';
 class Builder extends React.Component {
   state = {
     jsonEditorOpen: false,
+    scriptEditorOpen: false,
   }
 
   _toggleJSONEditor = () => {
     this.setState({ jsonEditorOpen: !this.state.jsonEditorOpen });
+  }
+
+  _toggleScriptEditor = () => {
+    this.setState({ scriptEditorOpen: !this.state.scriptEditorOpen });
   }
 
   render() {
@@ -59,7 +65,7 @@ class Builder extends React.Component {
       resetScene,
       setScene
     } = this.props;
-    const { jsonEditorOpen } = this.state;
+    const { jsonEditorOpen, scriptEditorOpen } = this.state;
 
     return (
       <div className={styles.builder}>
@@ -75,7 +81,9 @@ class Builder extends React.Component {
           utilsOpen={utilsOpen}
           onClickToggleUtils={toggleUtils}
           onClickToggleJSON={this._toggleJSONEditor}
-          jsonEditorOpen={jsonEditorOpen}>
+          jsonEditorOpen={jsonEditorOpen}
+          onClickToggleScript={this._toggleScriptEditor}
+          scriptEditorOpen={scriptEditorOpen}>
           <Sidebar utilsOpen={utilsOpen} resetScene={resetScene} objects={bricks} importScene={setScene} />
         </Topbar>
         <Scene
@@ -93,6 +101,16 @@ class Builder extends React.Component {
             objects={bricks}
             loadObjectsFromJSON={setScene}
             onClose={this._toggleJSONEditor}
+          />
+        )}
+        {scriptEditorOpen && (
+          <ScriptEditor
+            bricks={bricks}
+            addObject={addBrick}
+            removeObject={removeBrick}
+            updateObject={updateBrick}
+            resetScene={resetScene}
+            onClose={this._toggleScriptEditor}
           />
         )}
         <Help inversed={utilsOpen} />

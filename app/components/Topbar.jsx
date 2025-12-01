@@ -20,6 +20,8 @@ const Topbar = ({
   onClickToggleUtils,
   onClickToggleJSON,
   jsonEditorOpen,
+  onClickToggleScript,
+  scriptEditorOpen,
   children
 }) => {
   return (
@@ -62,6 +64,11 @@ const Topbar = ({
           text="Grid" />
       </div>
       <div className={styles.rightSection}>
+        <Button
+          active={scriptEditorOpen}
+          onClick={onClickToggleScript}
+          icon="play"
+          text="Script" />
         <Button
           active={jsonEditorOpen}
           onClick={onClickToggleJSON}
