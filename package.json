@@ -1,7 +1,7 @@
 {
-  "name": "brick-builder",
+  "name": "codeblocks",
   "version": "0.1.0",
-  "description": "React based brick builder",
+  "description": "React based CodeBlocks builder",
   "main": "index.js",
   "scripts": {
     "clean": "rimraf docs/",
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nicmosc/brick-builder"
+    "url": "https://github.com/nicmosc/codeblocks"
   },
   "keywords": [],
   "author": "Nicolaos Moscholios <nmoscholios@gmail.com>",
