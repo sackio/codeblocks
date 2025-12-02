@@ -3,7 +3,6 @@ import PubSub from 'pubsub-js';
 import If from 'if-only';
 
 import Detector from 'utils/threejs/Detector';
-import Monitor from 'components/engine/Monitor';
 import Brick from 'components/engine/Brick';
 import Message from 'components/Message';
 import { RollOverBrick } from 'components/engine/Helpers';
@@ -344,7 +343,6 @@ class Scene extends React.Component {
             <span>Rotating bricks</span>
           </Message>
         </If>
-        <Monitor />
       </div>
     );
   }

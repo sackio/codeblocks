@@ -18,106 +18,87 @@ class InstructionsModal extends React.Component {
 
         <div className={styles.content}>
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Getting Started</h2>
-            <p>CodeBlocks is a 3D brick building application with scripting capabilities.</p>
+            <h2 className={styles.sectionTitle}>🎮 How to Play</h2>
+            <p>CodeBlocks is your virtual LEGO world where you can build anything and learn programming!</p>
             <ul>
-              <li><strong>Build Mode:</strong> Click to place bricks in the scene</li>
-              <li><strong>Paint Mode:</strong> Click existing bricks to change their color</li>
+              <li><strong>Build Mode:</strong> Click on the grid to add new bricks</li>
+              <li><strong>Paint Mode:</strong> Click bricks to change their colors</li>
               <li><strong>Delete:</strong> Hold Shift and click a brick to remove it</li>
             </ul>
           </section>
 
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Controls</h2>
+            <h2 className={styles.sectionTitle}>🕹️ Moving Around</h2>
             <ul>
-              <li><strong>Rotate View:</strong> Left click + drag</li>
-              <li><strong>Pan View:</strong> Right click + drag</li>
-              <li><strong>Zoom:</strong> Mouse wheel</li>
-              <li><strong>Toggle Grid:</strong> Use the Grid button in the Scene section</li>
+              <li><strong>Spin the camera:</strong> Left click and drag</li>
+              <li><strong>Move the camera:</strong> Right click and drag</li>
+              <li><strong>Zoom in/out:</strong> Scroll with your mouse wheel</li>
+              <li><strong>Show/hide grid:</strong> Click the Grid button</li>
             </ul>
           </section>
 
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Scripting API</h2>
-            <p>Use the Script editor to create automated builds. Available functions:</p>
+            <h2 className={styles.sectionTitle}>💻 Programming Commands</h2>
+            <p>Click the "Script" button to write code that builds for you! Here are the magic commands:</p>
 
             <div className={styles.codeBlock}>
               <code>createBrick(options)</code>
-              <p>Create a new brick in the scene.</p>
+              <p>Make a new brick appear!</p>
               <pre>{`createBrick({
-  type: 'rectangle',        // Shape type
-  color: '#ff0000',         // Hex color
+  type: 'rectangle',        // What shape?
+  color: '#ff0000',         // What color? (red)
   position: { x: 0, y: 24, z: 0 },
-  rotation: 0,              // Rotation in radians (optional)
-  dimensions: { x: 2, z: 2 } // Size (optional)
+  dimensions: { x: 2, z: 2 } // How big?
 })`}</pre>
             </div>
 
             <div className={styles.codeBlock}>
-              <code>deleteBrick(id)</code>
-              <p>Remove a brick by its ID.</p>
-              <pre>{`const brick = createBrick({ /* ... */ });
-deleteBrick(brick.id);`}</pre>
-            </div>
-
-            <div className={styles.codeBlock}>
-              <code>setBrickColor(id, color)</code>
-              <p>Change the color of an existing brick.</p>
-              <pre>{`setBrickColor(brick.id, '#00ff00');`}</pre>
-            </div>
-
-            <div className={styles.codeBlock}>
-              <code>clearScene()</code>
-              <p>Remove all bricks from the scene.</p>
-              <pre>{`clearScene();`}</pre>
-            </div>
-
-            <div className={styles.codeBlock}>
               <code>wait(milliseconds)</code>
-              <p>Pause execution for animation effects. Must use with await.</p>
-              <pre>{`await wait(100); // Wait 100ms`}</pre>
+              <p>Wait before the next brick (makes cool animations!)</p>
+              <pre>{`await wait(100); // Wait a tiny bit`}</pre>
             </div>
 
             <div className={styles.codeBlock}>
               <code>createGrid(width, depth, options)</code>
-              <p>Create a grid of bricks.</p>
+              <p>Make a whole floor of bricks at once!</p>
               <pre>{`createGrid(5, 5, {
   type: 'plate',
-  color: '#888888',
-  spacing: 25
+  color: '#888888'
 });`}</pre>
+            </div>
+
+            <div className={styles.codeBlock}>
+              <code>clearScene()</code>
+              <p>Remove all bricks and start fresh!</p>
+              <pre>{`clearScene();`}</pre>
             </div>
           </section>
 
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Brick Types</h2>
-            <p>Available brick shapes:</p>
+            <h2 className={styles.sectionTitle}>🧱 Cool Brick Shapes</h2>
+            <p>Try different shapes when building! Here are all the types:</p>
             <ul className={styles.brickList}>
               <li>rectangle</li>
               <li>cylinder</li>
               <li>cone</li>
               <li>slope45</li>
               <li>slope33</li>
-              <li>slopeInverted</li>
               <li>wedge</li>
               <li>arch</li>
               <li>curve</li>
-              <li>cornerInside</li>
-              <li>cornerOutside</li>
-              <li>cornerRound</li>
-              <li>plate</li>
-              <li>tile</li>
+              <li>plate (flat)</li>
+              <li>tile (super flat)</li>
             </ul>
           </section>
 
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Tips</h2>
+            <h2 className={styles.sectionTitle}>💡 Fun Tips!</h2>
             <ul>
-              <li>Use the "Generate Script" button to see the code for your current build</li>
-              <li>Check out the example scripts for inspiration</li>
-              <li>Use <code>await wait()</code> to create animated building sequences</li>
-              <li>Export your builds as JSON for later use</li>
-              <li>Scripts run in an async context, so you can use async/await</li>
+              <li>Click "Load Example..." in the Script editor to see cool example code</li>
+              <li>Use <code>await wait(100)</code> in your code to make bricks appear one at a time</li>
+              <li>Save your creations using the JSON button (it's like a recipe for your build!)</li>
+              <li>Try making patterns with loops in your code - like towers or grids!</li>
+              <li>Mix different colors and shapes to build awesome structures</li>
             </ul>
           </section>
         </div>
