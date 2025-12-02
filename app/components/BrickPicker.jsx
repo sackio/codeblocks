@@ -1,9 +1,8 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import isEqual from 'lodash/isEqual';
 
 import { displayNameFromDimensions, getBrickIconFromDimensions } from 'utils';
-import { bricks, shapeTypes } from 'utils/constants';
+import { shapeTypes } from 'utils/constants';
 
 import styles from 'styles/components/brick-picker';
 
@@ -14,6 +13,7 @@ class BrickPicker extends React.Component {
     customWidth: 2,
     customLength: 2,
     selectedType: 'rectangle',
+    recentBricks: [],
   }
 
   constructor(props) {
@@ -24,14 +24,50 @@ class BrickPicker extends React.Component {
     this._handleWidthChange = this._handleWidthChange.bind(this);
     this._handleLengthChange = this._handleLengthChange.bind(this);
     this._handleShapeTypeChange = this._handleShapeTypeChange.bind(this);
+    this._addToRecent = this._addToRecent.bind(this);
+    this._loadRecentBricks = this._loadRecentBricks.bind(this);
   }
 
   componentDidMount() {
     document.addEventListener('mousedown', this._handleClickOutside);
+    this._loadRecentBricks();
   }
 
   componentWillUnmount() {
     document.removeEventListener('mousedown', this._handleClickOutside);
+  }
+
+  _loadRecentBricks() {
+    try {
+      const saved = localStorage.getItem('codeblocks_recent_bricks');
+      if (saved) {
+        this.setState({ recentBricks: JSON.parse(saved) });
+      }
+    } catch (e) {
+      console.error('Failed to load recent bricks:', e);
+    }
+  }
+
+  _addToRecent(brick) {
+    const { recentBricks } = this.state;
+
+    // Check if this exact brick already exists
+    const exists = recentBricks.some(b =>
+      b.x === brick.x && b.z === brick.z && b.type === brick.type
+    );
+
+    if (exists) return;
+
+    // Add to beginning, limit to 8 recent items
+    const updated = [brick, ...recentBricks].slice(0, 8);
+
+    this.setState({ recentBricks: updated });
+
+    try {
+      localStorage.setItem('codeblocks_recent_bricks', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to save recent bricks:', e);
+    }
   }
 
   render() {
@@ -106,33 +142,44 @@ class BrickPicker extends React.Component {
                       <option value={shapeTypes.TILE}>Tile</option>
                     </select>
                   </div>
+                  <div className={styles.previewSection} key={`${this.state.customWidth}-${this.state.customLength}-${this.state.selectedType}`}>
+                    <div className={styles.previewTitle}>Preview</div>
+                    <div className={styles.previewBrick}>
+                      {getBrickIconFromDimensions({ x: this.state.customWidth, z: this.state.customLength, type: this.state.selectedType })}
+                    </div>
+                    <div className={styles.previewLabel}>
+                      {this.state.customWidth} × {this.state.customLength} - {this.state.selectedType}
+                    </div>
+                  </div>
                   <button onClick={this._handleCustomSize} className={styles.applyButton}>
                     Apply Custom Size
                   </button>
                 </div>
 
-                <div className={styles.presetsSection}>
-                  <div className={styles.sectionTitle}>Quick Presets</div>
-                  <div className={styles.presetGrid}>
-                    {bricks.map((b, i) => (
-                      <div
-                        key={i}
-                        className={isEqual(selectedSize, b) ? styles.presetSelected : styles.presetButton}
-                        onClick={() => {
-                          handleSetBrick({ ...b, type: 'rectangle' });
-                          this.setState({ open: false });
-                        }}
-                      >
-                        <div className={styles.presetIcon}>
-                          {getBrickIconFromDimensions(b)}
+                {this.state.recentBricks.length > 0 && (
+                  <div className={styles.recentSection}>
+                    <div className={styles.sectionTitle}>Recent Selections</div>
+                    <div className={styles.recentGrid}>
+                      {this.state.recentBricks.map((brick, i) => (
+                        <div
+                          key={i}
+                          className={styles.recentButton}
+                          onClick={() => {
+                            handleSetBrick(brick);
+                            this.setState({ open: false });
+                          }}
+                        >
+                          <div className={styles.recentIcon}>
+                            {getBrickIconFromDimensions(brick)}
+                          </div>
+                          <div className={styles.recentLabel}>
+                            {displayNameFromDimensions(brick)}
+                          </div>
                         </div>
-                        <div className={styles.presetLabel}>
-                          {displayNameFromDimensions(b)}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </React.Fragment>,
@@ -169,7 +216,9 @@ class BrickPicker extends React.Component {
   _handleCustomSize() {
     const { customWidth, customLength, selectedType } = this.state;
     const { handleSetBrick } = this.props;
-    handleSetBrick({ x: customWidth, z: customLength, type: selectedType });
+    const brick = { x: customWidth, z: customLength, type: selectedType };
+    handleSetBrick(brick);
+    this._addToRecent(brick);
     this.setState({ open: false });
   }
 

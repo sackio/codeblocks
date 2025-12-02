@@ -8,21 +8,24 @@ import styles from 'styles/components/script-editor';
 
 class ScriptEditor extends React.Component {
   state = {
-    scriptText: '',
     error: null,
     running: false,
     cheatsheetOpen: false,
-    userModified: false,
     syntaxWarning: null,
   }
 
   componentDidMount() {
-    this._generateScriptFromBricks();
+    // Only auto-generate if no script exists (scriptText prop is empty)
+    // This preserves loaded examples and user-written scripts
+    if (!this.props.scriptText) {
+      this._generateScriptFromBricks();
+    }
   }
 
   componentDidUpdate(prevProps) {
-    // Only regenerate if bricks changed AND user hasn't modified the script
-    if (prevProps.bricks !== this.props.bricks && !this.state.userModified) {
+    // Only regenerate if bricks changed AND user hasn't modified the script AND not running
+    // This prevents regeneration when loading and running examples
+    if (prevProps.bricks !== this.props.bricks && !this.props.scriptUserModified && !this.state.running) {
       this._generateScriptFromBricks();
     }
   }
@@ -60,20 +63,20 @@ class ScriptEditor extends React.Component {
   }
 
   _generateScriptFromBricks = () => {
-    const { bricks } = this.props;
+    const { bricks, onScriptChange } = this.props;
 
     if (bricks.length === 0) {
-      this.setState({
-        scriptText: `// Example: Create a colorful tower
+      const exampleScript = `// Example: Create a colorful tower
 for (let i = 0; i < 5; i++) {
   createBrick({
     color: ['red', 'blue', 'green', 'yellow', 'orange'][i],
-    position: { x: 0, y: i * 24, z: 0 },
+    position: { x: 0, y: i * 33, z: 0 },
     dimensions: { x: 2, z: 2 }
   });
   await wait(300);
-}`
-      });
+}`;
+      onScriptChange(exampleScript, false);
+      this.setState({ syntaxWarning: null });
       return;
     }
 
@@ -106,7 +109,8 @@ for (let i = 0; i < 5; i++) {
       script += `\n`;
     });
 
-    this.setState({ scriptText: script, syntaxWarning: null });
+    onScriptChange(script, false);
+    this.setState({ syntaxWarning: null });
   }
 
   _validateJavaScriptSyntax = (code) => {
@@ -119,8 +123,22 @@ for (let i = 0; i < 5; i++) {
         'setBrickColor',
         'clearScene',
         'getBricks',
+        'brick',
+        'getBrickId',
         'wait',
         'createGrid',
+        'setTopView',
+        'setFrontView',
+        'setSideView',
+        'setIsometricView',
+        'resetView',
+        'zoomIn',
+        'zoomOut',
+        'setCameraPosition',
+        'setCameraTarget',
+        'setCameraView',
+        'getCameraPosition',
+        'getCameraTarget',
         `return (async () => {\n${code}\n})();`
       );
       return null; // No error
@@ -144,19 +162,115 @@ for (let i = 0; i < 5; i++) {
     // Validate JavaScript syntax in real-time
     const syntaxWarning = newText.trim() ? this._validateJavaScriptSyntax(newText) : null;
 
+    this.props.onScriptChange(newText, true);
     this.setState({
-      scriptText: newText,
       error: null,
-      userModified: true,
       syntaxWarning,
     });
   }
 
   _createScriptingAPI = () => {
-    const { addObject, removeObject, updateObject, resetScene, bricks } = this.props;
+    const {
+      addObject,
+      removeObject,
+      updateObject,
+      resetScene,
+      bricks,
+      setTopView,
+      setFrontView,
+      setSideView,
+      setIsometricView,
+      resetView,
+      zoomIn,
+      zoomOut,
+      setCameraPosition,
+      setCameraTarget,
+      setCameraView,
+      getCameraPosition,
+      getCameraTarget,
+    } = this.props;
+
+    // Object-oriented chainable Brick wrapper
+    class BrickAPI {
+      constructor(brickId, apiMethods) {
+        this.id = brickId;
+        this._api = apiMethods;
+        this._chain = Promise.resolve();
+      }
+
+      // Chainable methods - they add to the promise chain and return this
+      color(newColor) {
+        this._chain = this._chain.then(() => {
+          this._api.setBrickColor(this.id, newColor);
+        });
+        return this;
+      }
+
+      move(position) {
+        this._chain = this._chain.then(() => {
+          this._api.moveBrick(this.id, position);
+        });
+        return this;
+      }
+
+      moveBy(delta) {
+        this._chain = this._chain.then(() => {
+          const brick = bricks.find(b => b.customId === this.id);
+          if (brick) {
+            const newPos = {
+              x: brick.position.x + (delta.x || 0),
+              y: brick.position.y + (delta.y || 0),
+              z: brick.position.z + (delta.z || 0)
+            };
+            this._api.moveBrick(this.id, newPos);
+          }
+        });
+        return this;
+      }
+
+      rotate(angle) {
+        this._chain = this._chain.then(() => {
+          const brick = bricks.find(b => b.customId === this.id);
+          if (brick) {
+            brick.rotation.y = angle;
+            updateObject(brick);
+          }
+        });
+        return this;
+      }
+
+      wait(ms) {
+        this._chain = this._chain.then(() => this._api.wait(ms));
+        return this;
+      }
+
+      delete() {
+        this._chain = this._chain.then(() => {
+          this._api.deleteBrick(this.id);
+        });
+        return this._chain; // Return the promise for final await
+      }
+
+      // Get properties (not chainable - execute immediately)
+      getPosition() {
+        const brick = bricks.find(b => b.customId === this.id);
+        return brick ? { x: brick.position.x, y: brick.position.y, z: brick.position.z } : null;
+      }
+
+      getColor() {
+        const brick = bricks.find(b => b.customId === this.id);
+        return brick ? brick._color : null;
+      }
+
+      // Make the object awaitable - this executes the chain
+      then(resolve, reject) {
+        return this._chain.then(() => this).then(resolve, reject);
+      }
+    }
 
     const api = {
       // Create a brick with specified options
+      // Returns BrickAPI object for chaining
       createBrick: (options = {}) => {
         const {
           type = 'rectangle',
@@ -182,7 +296,9 @@ for (let i = 0; i < 5; i++) {
         brick.position.set(position.x, position.y, position.z);
 
         addObject(brick);
-        return brick.customId;
+
+        // Return BrickAPI object for OOP style
+        return new BrickAPI(brick.customId, api);
       },
 
       // Move a brick to a new position
@@ -214,7 +330,7 @@ for (let i = 0; i < 5; i++) {
         resetScene();
       },
 
-      // Get all bricks
+      // Get all bricks (functional style)
       getBricks: () => {
         return bricks.map(b => ({
           id: b.customId,
@@ -222,6 +338,18 @@ for (let i = 0; i < 5; i++) {
           color: b._color,
           dimensions: b._dimensions,
         }));
+      },
+
+      // Get a brick by ID and wrap it for OOP chaining
+      brick: (brickId) => {
+        const brick = bricks.find(b => b.customId === brickId);
+        if (!brick) return null;
+        return new BrickAPI(brickId, api);
+      },
+
+      // Alias for backwards compatibility (returns just ID)
+      getBrickId: (index) => {
+        return bricks[index]?.customId;
       },
 
       // Wait/delay for animations
@@ -256,14 +384,75 @@ for (let i = 0; i < 5; i++) {
         }
         return ids;
       },
+
+      // Camera control methods
+      setTopView: () => {
+        if (setTopView) setTopView();
+        return api.wait(0); // Return a promise for consistency
+      },
+
+      setFrontView: () => {
+        if (setFrontView) setFrontView();
+        return api.wait(0);
+      },
+
+      setSideView: () => {
+        if (setSideView) setSideView();
+        return api.wait(0);
+      },
+
+      setIsometricView: () => {
+        if (setIsometricView) setIsometricView();
+        return api.wait(0);
+      },
+
+      resetView: () => {
+        if (resetView) resetView();
+        return api.wait(0);
+      },
+
+      zoomIn: () => {
+        if (zoomIn) zoomIn();
+        return api.wait(0);
+      },
+
+      zoomOut: () => {
+        if (zoomOut) zoomOut();
+        return api.wait(0);
+      },
+
+      // Custom camera position and target methods
+      setCameraPosition: (x, y, z) => {
+        if (setCameraPosition) setCameraPosition(x, y, z);
+        return api.wait(0);
+      },
+
+      setCameraTarget: (x, y, z) => {
+        if (setCameraTarget) setCameraTarget(x, y, z);
+        return api.wait(0);
+      },
+
+      setCameraView: (position, target) => {
+        if (setCameraView) setCameraView(position, target);
+        return api.wait(0);
+      },
+
+      getCameraPosition: () => {
+        if (getCameraPosition) return getCameraPosition();
+        return { x: 0, y: 0, z: 0 };
+      },
+
+      getCameraTarget: () => {
+        if (getCameraTarget) return getCameraTarget();
+        return { x: 0, y: 0, z: 0 };
+      },
     };
 
     return api;
   }
 
   _handleRun = async () => {
-    const { scriptText } = this.state;
-    const { resetScene } = this.props;
+    const { scriptText, resetScene } = this.props;
 
     this.setState({ running: true, error: null });
 
@@ -282,8 +471,22 @@ for (let i = 0; i < 5; i++) {
         'setBrickColor',
         'clearScene',
         'getBricks',
+        'brick',
+        'getBrickId',
         'wait',
         'createGrid',
+        'setTopView',
+        'setFrontView',
+        'setSideView',
+        'setIsometricView',
+        'resetView',
+        'zoomIn',
+        'zoomOut',
+        'setCameraPosition',
+        'setCameraTarget',
+        'setCameraView',
+        'getCameraPosition',
+        'getCameraTarget',
         `return (async () => {
           ${scriptText}
         })();`
@@ -297,8 +500,22 @@ for (let i = 0; i < 5; i++) {
         api.setBrickColor,
         api.clearScene,
         api.getBricks,
+        api.brick,
+        api.getBrickId,
         api.wait,
-        api.createGrid
+        api.createGrid,
+        api.setTopView,
+        api.setFrontView,
+        api.setSideView,
+        api.setIsometricView,
+        api.resetView,
+        api.zoomIn,
+        api.zoomOut,
+        api.setCameraPosition,
+        api.setCameraTarget,
+        api.setCameraView,
+        api.getCameraPosition,
+        api.getCameraTarget
       );
 
       this.setState({ running: false, syntaxWarning: null });
@@ -321,7 +538,7 @@ for (let i = 0; i < 5; i++) {
   }
 
   _handleExportScript = () => {
-    const { scriptText } = this.state;
+    const { scriptText } = this.props;
     const blob = new Blob([scriptText], { type: 'application/javascript' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -340,10 +557,9 @@ for (let i = 0; i < 5; i++) {
       const importedText = event.target.result;
       const syntaxWarning = importedText.trim() ? this._validateJavaScriptSyntax(importedText) : null;
 
+      this.props.onScriptChange(importedText, true);
       this.setState({
-        scriptText: importedText,
         error: null,
-        userModified: true,
         syntaxWarning,
       });
     };
@@ -358,10 +574,9 @@ for (let i = 0; i < 5; i++) {
     if (example) {
       const syntaxWarning = example.code.trim() ? this._validateJavaScriptSyntax(example.code) : null;
 
+      this.props.onScriptChange(example.code, true);
       this.setState({
-        scriptText: example.code,
         error: null,
-        userModified: true,
         syntaxWarning,
       });
     }
@@ -381,66 +596,150 @@ for (let i = 0; i < 5; i++) {
         </div>
         <div className={styles.cheatsheetContent}>
           <div className={styles.apiSection}>
+            <h3>🎨 Two Programming Styles!</h3>
+            <p>CodeBlocks supports both functional and object-oriented programming!</p>
+          </div>
+
+          <div className={styles.apiSection}>
             <h3>createBrick(options)</h3>
-            <p>Creates a new brick in the scene.</p>
-            <pre>{`createBrick({
-  type: 'rectangle',      // brick type
-  color: '#ff6b35',       // hex color
+            <p>Creates a new brick. Returns a brick object you can chain!</p>
+            <pre>{`// Functional style
+createBrick({
+  type: 'rectangle',
+  color: '#ff6b35',
   position: { x: 0, y: 12, z: 0 },
-  rotation: 0,            // radians
   dimensions: { x: 2, z: 2 }
-})`}</pre>
+});
+
+// OOP style - chain methods!
+const myBrick = createBrick({
+  color: 'red',
+  position: { x: 0, y: 12, z: 0 }
+});
+
+await myBrick
+  .wait(500)
+  .color('blue')
+  .wait(500)
+  .move({ x: 50, y: 12, z: 0 });`}</pre>
           </div>
 
           <div className={styles.apiSection}>
-            <h3>moveBrick(id, position)</h3>
-            <p>Moves an existing brick to a new position.</p>
-            <pre>{`moveBrick(brickId, { x: 50, y: 12, z: 50 })`}</pre>
+            <h3>brick(brickId)</h3>
+            <p>Get an existing brick by ID to use OOP methods.</p>
+            <pre>{`const myBrick = brick(brickId);
+await myBrick.color('green').wait(200).moveBy({ x: 25 });`}</pre>
           </div>
 
           <div className={styles.apiSection}>
-            <h3>deleteBrick(id)</h3>
-            <p>Removes a brick from the scene.</p>
-            <pre>{`deleteBrick(brickId)`}</pre>
+            <h3>Chainable Brick Methods</h3>
+            <p>These methods can be chained together!</p>
+            <pre>{`brick.color('#ff0000')      // Change color
+brick.move({ x, y, z })      // Move to position
+brick.moveBy({ x, y, z })    // Move by offset
+brick.rotate(angle)          // Rotate (radians)
+brick.wait(ms)               // Pause
+brick.delete()               // Remove brick
+
+// Get info (not chainable):
+brick.getPosition()
+brick.getColor()`}</pre>
           </div>
 
           <div className={styles.apiSection}>
-            <h3>setBrickColor(id, color)</h3>
-            <p>Changes the color of an existing brick.</p>
-            <pre>{`setBrickColor(brickId, '#00ff00')`}</pre>
+            <h3>Functional API Methods</h3>
+            <p>Traditional function-based approach.</p>
+            <pre>{`moveBrick(id, { x: 50, y: 12, z: 50 })
+deleteBrick(id)
+setBrickColor(id, '#00ff00')
+getBrickId(0)  // Get ID of first brick`}</pre>
           </div>
 
           <div className={styles.apiSection}>
-            <h3>clearScene()</h3>
-            <p>Removes all bricks from the scene.</p>
-            <pre>{`clearScene()`}</pre>
-          </div>
-
-          <div className={styles.apiSection}>
-            <h3>getBricks()</h3>
-            <p>Returns array of all bricks with their properties.</p>
-            <pre>{`const bricks = getBricks()`}</pre>
-          </div>
-
-          <div className={styles.apiSection}>
-            <h3>wait(ms)</h3>
-            <p>Pauses script execution for specified milliseconds. Use with await.</p>
-            <pre>{`await wait(1000)  // wait 1 second`}</pre>
+            <h3>Scene Management</h3>
+            <pre>{`clearScene()           // Remove all bricks
+getBricks()            // Get all brick data
+await wait(1000)       // Wait 1 second`}</pre>
           </div>
 
           <div className={styles.apiSection}>
             <h3>createGrid(width, depth, options)</h3>
-            <p>Creates a grid of bricks. Returns array of brick IDs.</p>
-            <pre>{`await createGrid(5, 5, {
+            <p>Creates a grid of bricks. Returns array of brick objects.</p>
+            <pre>{`const bricks = await createGrid(5, 5, {
   color: '#ff6b35',
+  type: 'plate',
   animate: true,
-  delay: 100
-})`}</pre>
+  delay: 50
+});
+
+// Animate each brick in the grid!
+for (const b of bricks) {
+  await b.color('rainbow'.split('')[Math.random() * 7 | 0]);
+}`}</pre>
+          </div>
+
+          <div className={styles.apiSection}>
+            <h3>Camera Controls</h3>
+            <p>Change the view to see your creations from different angles!</p>
+            <pre>{`await setTopView()        // Look from above
+await setFrontView()      // Front view
+await setSideView()       // Side view
+await setIsometricView()  // Cool 3D angle
+await resetView()         // Back to start
+await zoomIn()            // Get closer
+await zoomOut()           // Move away
+
+// Example: Spin the view!
+for (let i = 0; i < 4; i++) {
+  await setSideView();
+  await wait(500);
+  await setFrontView();
+  await wait(500);
+}`}</pre>
+          </div>
+
+          <div className={styles.apiSection}>
+            <h3>Custom Camera Control</h3>
+            <p>Move the camera to any position for motion tracking and cinematic effects!</p>
+            <pre>{`// Set camera position (where camera is)
+await setCameraPosition(1000, 500, 1000);
+
+// Set camera target (where camera looks)
+await setCameraTarget(0, 50, 0);
+
+// Set both position and target at once
+await setCameraView(
+  { x: 800, y: 600, z: 800 },  // position
+  { x: 0, y: 100, z: 0 }        // target
+);
+
+// Get current camera position
+const pos = getCameraPosition();
+console.log(pos.x, pos.y, pos.z);
+
+// Get current camera target
+const target = getCameraTarget();
+
+// Example: Follow a moving brick!
+const brick = createBrick({
+  color: 'red',
+  position: { x: 0, y: 12, z: 0 }
+});
+
+for (let i = 0; i < 10; i++) {
+  await brick.moveBy({ x: 25 });
+  const brickPos = brick.getPosition();
+  await setCameraView(
+    { x: brickPos.x + 200, y: 200, z: 200 },
+    { x: brickPos.x, y: brickPos.y, z: brickPos.z }
+  );
+  await wait(300);
+}`}</pre>
           </div>
 
           <div className={styles.apiSection}>
             <h3>Available Brick Types</h3>
-            <p>rectangle, cylinder, cone, slope45, slope33, slopeInverted, wedge, arch, curve, cornerInside, cornerOutside, cornerRound, plate, tile</p>
+            <p>rectangle, cylinder, cone, slope45, slope33, wedge, arch, curve, plate, tile</p>
           </div>
         </div>
       </div>
@@ -448,8 +747,8 @@ for (let i = 0; i < 5; i++) {
   }
 
   render() {
-    const { scriptText, error, running, cheatsheetOpen, syntaxWarning } = this.state;
-    const { onClose } = this.props;
+    const { error, running, cheatsheetOpen, syntaxWarning } = this.state;
+    const { onClose, scriptText } = this.props;
 
     return (
       <div className={styles.container}>

@@ -35,10 +35,88 @@ class Builder extends React.Component {
     jsonEditorOpen: false,
     scriptEditorOpen: false,
     instructionsOpen: false,
+    scriptText: '',
+    scriptUserModified: false,
   }
 
   componentDidMount() {
     this.tutorial = new Tutorial();
+  }
+
+  // Camera control methods for scripting API
+  _setTopView = () => {
+    if (this.sceneRef) {
+      this.sceneRef._setTopView();
+    }
+  }
+
+  _setFrontView = () => {
+    if (this.sceneRef) {
+      this.sceneRef._setFrontView();
+    }
+  }
+
+  _setSideView = () => {
+    if (this.sceneRef) {
+      this.sceneRef._setSideView();
+    }
+  }
+
+  _setIsometricView = () => {
+    if (this.sceneRef) {
+      this.sceneRef._setIsometricView();
+    }
+  }
+
+  _resetView = () => {
+    if (this.sceneRef) {
+      this.sceneRef._resetView();
+    }
+  }
+
+  _zoomIn = () => {
+    if (this.sceneRef) {
+      this.sceneRef._zoomIn();
+    }
+  }
+
+  _zoomOut = () => {
+    if (this.sceneRef) {
+      this.sceneRef._zoomOut();
+    }
+  }
+
+  // Custom camera position and target methods for scripting
+  _setCameraPosition = (x, y, z) => {
+    if (this.sceneRef) {
+      this.sceneRef._setCameraPosition(x, y, z);
+    }
+  }
+
+  _setCameraTarget = (x, y, z) => {
+    if (this.sceneRef) {
+      this.sceneRef._setCameraTarget(x, y, z);
+    }
+  }
+
+  _setCameraView = (position, target) => {
+    if (this.sceneRef) {
+      this.sceneRef._setCameraView(position, target);
+    }
+  }
+
+  _getCameraPosition = () => {
+    if (this.sceneRef) {
+      return this.sceneRef._getCameraPosition();
+    }
+    return { x: 0, y: 0, z: 0 };
+  }
+
+  _getCameraTarget = () => {
+    if (this.sceneRef) {
+      return this.sceneRef._getCameraTarget();
+    }
+    return { x: 0, y: 0, z: 0 };
   }
 
   _toggleJSONEditor = () => {
@@ -51,6 +129,10 @@ class Builder extends React.Component {
 
   _toggleInstructions = () => {
     this.setState({ instructionsOpen: !this.state.instructionsOpen });
+  }
+
+  _handleScriptChange = (scriptText, userModified) => {
+    this.setState({ scriptText, scriptUserModified: userModified });
   }
 
   _handleReset = () => {
@@ -104,6 +186,7 @@ class Builder extends React.Component {
           onClickStartTutorial={this._handleStartTutorial}
         />
         <Scene
+          ref={(ref) => { this.sceneRef = ref; }}
           brickColor={color}
           objects={bricks}
           mode={mode}
@@ -128,6 +211,21 @@ class Builder extends React.Component {
             updateObject={updateBrick}
             resetScene={resetScene}
             onClose={this._toggleScriptEditor}
+            setTopView={this._setTopView}
+            setFrontView={this._setFrontView}
+            setSideView={this._setSideView}
+            setIsometricView={this._setIsometricView}
+            resetView={this._resetView}
+            zoomIn={this._zoomIn}
+            zoomOut={this._zoomOut}
+            setCameraPosition={this._setCameraPosition}
+            setCameraTarget={this._setCameraTarget}
+            setCameraView={this._setCameraView}
+            getCameraPosition={this._getCameraPosition}
+            getCameraTarget={this._getCameraTarget}
+            scriptText={this.state.scriptText}
+            scriptUserModified={this.state.scriptUserModified}
+            onScriptChange={this._handleScriptChange}
           />
         )}
         {instructionsOpen && (

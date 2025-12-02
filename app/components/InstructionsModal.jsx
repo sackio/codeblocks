@@ -34,6 +34,7 @@ class InstructionsModal extends React.Component {
               <li><strong>Move the camera:</strong> Right click and drag</li>
               <li><strong>Zoom in/out:</strong> Scroll with your mouse wheel</li>
               <li><strong>Show/hide grid:</strong> Click the Grid button</li>
+              <li><strong>Quick views:</strong> Use the camera control buttons (bottom-left corner) to jump to different angles!</li>
             </ul>
           </section>
 
@@ -71,6 +72,16 @@ class InstructionsModal extends React.Component {
               <code>clearScene()</code>
               <p>Remove all bricks and start fresh!</p>
               <pre>{`clearScene();`}</pre>
+            </div>
+
+            <div className={styles.codeBlock}>
+              <code>setTopView(), setFrontView(), setSideView(), etc.</code>
+              <p>Control the camera view in your scripts!</p>
+              <pre>{`await setTopView();    // Look from above
+await setFrontView();  // Front angle
+await setSideView();   // Side angle
+await zoomIn();        // Get closer
+await zoomOut();       // Move away`}</pre>
             </div>
           </section>
 

@@ -5,6 +5,7 @@ import If from 'if-only';
 import Detector from 'utils/threejs/Detector';
 import Brick from 'components/engine/Brick';
 import Message from 'components/Message';
+import ViewControls from 'components/ViewControls';
 import { RollOverBrick } from 'components/engine/Helpers';
 import {
   PerspectiveCamera,
@@ -325,12 +326,112 @@ class Scene extends React.Component {
     this.renderer.render(this.scene, this.camera);
   }
 
+  // Camera view control methods
+  _setTopView = () => {
+    this.camera.position.set(0, 1500, 0);
+    this.camera.lookAt(0, 0, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
+  _setFrontView = () => {
+    this.camera.position.set(0, 500, 1200);
+    this.camera.lookAt(0, 0, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
+  _setSideView = () => {
+    this.camera.position.set(1200, 500, 0);
+    this.camera.lookAt(0, 0, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
+  _setIsometricView = () => {
+    this.camera.position.set(1000, 1000, 1000);
+    this.camera.lookAt(0, 0, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
+  _resetView = () => {
+    // Reset to initial camera position
+    this.camera.position.set(1000, 1000, 1000);
+    this.camera.lookAt(0, 0, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
+  _zoomIn = () => {
+    const direction = new THREE.Vector3();
+    this.camera.getWorldDirection(direction);
+    this.camera.position.addScaledVector(direction, 100);
+    this.controls.update();
+  }
+
+  _zoomOut = () => {
+    const direction = new THREE.Vector3();
+    this.camera.getWorldDirection(direction);
+    this.camera.position.addScaledVector(direction, -100);
+    this.controls.update();
+  }
+
+  // Custom camera position and target methods for scripting
+  _setCameraPosition = (x, y, z) => {
+    this.camera.position.set(x, y, z);
+    this.controls.update();
+  }
+
+  _setCameraTarget = (x, y, z) => {
+    this.camera.lookAt(x, y, z);
+    this.controls.target.set(x, y, z);
+    this.controls.update();
+  }
+
+  _setCameraView = (position, target) => {
+    // position and target should be objects with x, y, z properties
+    if (position) {
+      this.camera.position.set(position.x, position.y, position.z);
+    }
+    if (target) {
+      this.camera.lookAt(target.x, target.y, target.z);
+      this.controls.target.set(target.x, target.y, target.z);
+    }
+    this.controls.update();
+  }
+
+  _getCameraPosition = () => {
+    return {
+      x: this.camera.position.x,
+      y: this.camera.position.y,
+      z: this.camera.position.z
+    };
+  }
+
+  _getCameraTarget = () => {
+    return {
+      x: this.controls.target.x,
+      y: this.controls.target.y,
+      z: this.controls.target.z
+    };
+  }
+
   render() {
     const { brickHover, isShiftDown, isDDown, isRDown } = this.state;
     const { mode, shifted } = this.props;
     return(
       <div>
         <div className={shifted ? styles.shifted : styles.scene} style={{ cursor: isShiftDown ? 'move' : (brickHover ? 'pointer' : 'default') }} ref={(mount) => { this.mount = mount }} />
+        <ViewControls
+          onTopView={this._setTopView}
+          onFrontView={this._setFrontView}
+          onSideView={this._setSideView}
+          onIsometricView={this._setIsometricView}
+          onResetView={this._resetView}
+          onZoomIn={this._zoomIn}
+          onZoomOut={this._zoomOut}
+        />
         <If cond={isDDown && mode === 'build'}>
           <Message>
             <i className="ion-trash-a" />

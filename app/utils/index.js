@@ -42,7 +42,10 @@ export function shadeColor(rgbaColor, percent) {
 
 
 export function getMeasurementsFromDimensions({ x, y, z }) {
-  return { width: base * x, height: base * y || (base * 2) / 1.5, depth: base * z };
+  // Use integer height to avoid floating point precision issues in brick positioning
+  // (base * 2) / 1.5 = 33.333... which causes stacking/overlap artifacts
+  const defaultHeight = Math.round((base * 2) / 1.5); // = 33 for base=25
+  return { width: base * x, height: base * y || defaultHeight, depth: base * z };
 }
 
 
