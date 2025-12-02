@@ -1,5 +1,7 @@
 import React from 'react';
 import Brick from 'components/engine/Brick';
+import { RGBAToHexString } from 'utils';
+import { examplesList } from 'utils/examples';
 
 import styles from 'styles/components/script-editor';
 
@@ -10,10 +12,51 @@ class ScriptEditor extends React.Component {
     error: null,
     running: false,
     cheatsheetOpen: false,
+    userModified: false,
+    syntaxWarning: null,
   }
 
   componentDidMount() {
     this._generateScriptFromBricks();
+  }
+
+  componentDidUpdate(prevProps) {
+    // Only regenerate if bricks changed AND user hasn't modified the script
+    if (prevProps.bricks !== this.props.bricks && !this.state.userModified) {
+      this._generateScriptFromBricks();
+    }
+  }
+
+  _colorToRGBA = (color) => {
+    // Convert any CSS color (hex, named, rgb, etc.) to RGBA object
+
+    // First try hex format
+    const hexResult = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+    if (hexResult) {
+      return {
+        r: parseInt(hexResult[1], 16),
+        g: parseInt(hexResult[2], 16),
+        b: parseInt(hexResult[3], 16),
+        a: 1
+      };
+    }
+
+    // For named colors or other CSS color formats, use browser's color parsing
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, 1, 1);
+    const imageData = ctx.getImageData(0, 0, 1, 1);
+    const data = imageData.data;
+
+    return {
+      r: data[0],
+      g: data[1],
+      b: data[2],
+      a: data[3] / 255
+    };
   }
 
   _generateScriptFromBricks = () => {
@@ -40,7 +83,7 @@ for (let i = 0; i < 5; i++) {
     script += '// clearScene();\n\n';
 
     bricks.forEach((brick, index) => {
-      const color = brick._color;
+      const color = RGBAToHexString(brick._color);
       const pos = brick.position;
       const dims = brick._dimensions;
       const rotation = brick.rotation.y;
@@ -63,20 +106,56 @@ for (let i = 0; i < 5; i++) {
       script += `\n`;
     });
 
-    this.setState({ scriptText: script });
+    this.setState({ scriptText: script, syntaxWarning: null });
+  }
+
+  _validateJavaScriptSyntax = (code) => {
+    try {
+      // Try to parse as a function to check syntax
+      new Function(
+        'createBrick',
+        'moveBrick',
+        'deleteBrick',
+        'setBrickColor',
+        'clearScene',
+        'getBricks',
+        'wait',
+        'createGrid',
+        `return (async () => {\n${code}\n})();`
+      );
+      return null; // No error
+    } catch (err) {
+      // Extract useful error information
+      let message = err.message;
+
+      // Try to extract line number if available
+      const lineMatch = message.match(/line (\d+)/i);
+      if (lineMatch) {
+        return `Syntax error at line ${lineMatch[1]}: ${message}`;
+      }
+
+      return `Syntax error: ${message}`;
+    }
   }
 
   _handleScriptChange = (e) => {
+    const newText = e.target.value;
+
+    // Validate JavaScript syntax in real-time
+    const syntaxWarning = newText.trim() ? this._validateJavaScriptSyntax(newText) : null;
+
     this.setState({
-      scriptText: e.target.value,
+      scriptText: newText,
       error: null,
+      userModified: true,
+      syntaxWarning,
     });
   }
 
   _createScriptingAPI = () => {
     const { addObject, removeObject, updateObject, resetScene, bricks } = this.props;
 
-    return {
+    const api = {
       // Create a brick with specified options
       createBrick: (options = {}) => {
         const {
@@ -84,8 +163,14 @@ for (let i = 0; i < 5; i++) {
           color = '#ff6b35',
           position = { x: 0, y: 12, z: 0 },
           rotation = 0,
-          dimensions = { x: 2, z: 2, type: type }
+          dimensions = { x: 2, z: 2 }
         } = options;
+
+        // Merge type into dimensions to ensure it's always set
+        const finalDimensions = { ...dimensions, type };
+
+        // Convert color to RGBA format (supports hex, named colors, etc.)
+        const rgbaColor = this._colorToRGBA(color);
 
         // Create fake intersect for Brick constructor
         const fakeIntersect = {
@@ -93,7 +178,7 @@ for (let i = 0; i < 5; i++) {
           face: { normal: new THREE.Vector3(0, 1, 0) }
         };
 
-        const brick = new Brick(fakeIntersect, color, dimensions, rotation, 0);
+        const brick = new Brick(fakeIntersect, rgbaColor, finalDimensions, rotation, 0);
         brick.position.set(position.x, position.y, position.z);
 
         addObject(brick);
@@ -118,7 +203,8 @@ for (let i = 0; i < 5; i++) {
       setBrickColor: (id, color) => {
         const brick = bricks.find(b => b.customId === id);
         if (brick) {
-          brick.updateColor(color);
+          const rgbaColor = this._colorToRGBA(color);
+          brick.updateColor(rgbaColor);
           updateObject(brick);
         }
       },
@@ -156,7 +242,7 @@ for (let i = 0; i < 5; i++) {
 
         for (let x = 0; x < width; x++) {
           for (let z = 0; z < depth; z++) {
-            const id = this.createBrick({
+            const id = api.createBrick({
               color,
               type,
               position: { x: x * spacing, y: 12, z: z * spacing },
@@ -164,19 +250,25 @@ for (let i = 0; i < 5; i++) {
             });
             ids.push(id);
             if (animate) {
-              await this.wait(delay);
+              await api.wait(delay);
             }
           }
         }
         return ids;
       },
     };
+
+    return api;
   }
 
   _handleRun = async () => {
     const { scriptText } = this.state;
+    const { resetScene } = this.props;
 
     this.setState({ running: true, error: null });
+
+    // Clear the scene before running the script
+    resetScene();
 
     try {
       // Create the scripting API
@@ -209,7 +301,7 @@ for (let i = 0; i < 5; i++) {
         api.createGrid
       );
 
-      this.setState({ running: false });
+      this.setState({ running: false, syntaxWarning: null });
     } catch (err) {
       this.setState({
         running: false,
@@ -245,12 +337,37 @@ for (let i = 0; i < 5; i++) {
 
     const reader = new FileReader();
     reader.onload = (event) => {
+      const importedText = event.target.result;
+      const syntaxWarning = importedText.trim() ? this._validateJavaScriptSyntax(importedText) : null;
+
       this.setState({
-        scriptText: event.target.result,
+        scriptText: importedText,
         error: null,
+        userModified: true,
+        syntaxWarning,
       });
     };
     reader.readAsText(file);
+  }
+
+  _handleLoadExample = (e) => {
+    const exampleId = e.target.value;
+    if (!exampleId) return;
+
+    const example = examplesList.find(ex => ex.id === exampleId);
+    if (example) {
+      const syntaxWarning = example.code.trim() ? this._validateJavaScriptSyntax(example.code) : null;
+
+      this.setState({
+        scriptText: example.code,
+        error: null,
+        userModified: true,
+        syntaxWarning,
+      });
+    }
+
+    // Reset dropdown to placeholder
+    e.target.value = '';
   }
 
   _renderCheatsheet() {
@@ -331,7 +448,7 @@ for (let i = 0; i < 5; i++) {
   }
 
   render() {
-    const { scriptText, error, running, cheatsheetOpen } = this.state;
+    const { scriptText, error, running, cheatsheetOpen, syntaxWarning } = this.state;
     const { onClose } = this.props;
 
     return (
@@ -349,6 +466,12 @@ for (let i = 0; i < 5; i++) {
           </div>
         )}
 
+        {syntaxWarning && !error && (
+          <div className={styles.warning}>
+            <i className="ion-alert" /> {syntaxWarning}
+          </div>
+        )}
+
         <div className={styles.toolbar}>
           <button
             className={styles.button}
@@ -356,6 +479,17 @@ for (let i = 0; i < 5; i++) {
             disabled={running}>
             <i className="ion-play" /> {running ? 'Running...' : 'Run Script'}
           </button>
+          <select
+            className={styles.exampleSelect}
+            onChange={this._handleLoadExample}
+            disabled={running}>
+            <option value="">Load Example...</option>
+            {examplesList.map(example => (
+              <option key={example.id} value={example.id}>
+                {example.name}
+              </option>
+            ))}
+          </select>
           <button
             className={styles.button}
             onClick={this._handleExportScript}>

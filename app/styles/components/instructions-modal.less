@@ -1,0 +1,152 @@
+// ----------------
+// INSTRUCTIONS MODAL
+//
+// Component File
+// ----------------
+
+@import '~styles/vars';
+
+
+:local(.container) {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 700px;
+  max-height: 85vh;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+
+:local(.header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: @base-padding * 1.5;
+  border-bottom: 1px solid #eee;
+  flex-shrink: 0;
+}
+
+
+:local(.title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+
+:local(.closeButton) {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: #333;
+  }
+}
+
+
+:local(.content) {
+  flex: 1;
+  overflow-y: auto;
+  padding: @base-padding * 1.5;
+}
+
+
+:local(.section) {
+  margin-bottom: @base-margin * 2;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+
+:local(.sectionTitle) {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 @base-margin 0;
+  padding-bottom: @base-padding-small;
+  border-bottom: 2px solid @primary-orange;
+}
+
+
+:local(.content) p {
+  margin: @base-margin-small 0;
+  line-height: 1.6;
+  color: #555;
+}
+
+
+:local(.content) ul {
+  margin: @base-margin 0;
+  padding-left: @base-padding * 2;
+  color: #555;
+  line-height: 1.8;
+
+  li {
+    margin-bottom: @base-margin-small;
+
+    strong {
+      color: #333;
+    }
+  }
+}
+
+
+:local(.brickList) {
+  columns: 2;
+  column-gap: @base-margin * 2;
+
+  li {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+  }
+}
+
+
+:local(.codeBlock) {
+  background: #f8f8f8;
+  border-left: 3px solid @primary-orange;
+  padding: @base-padding;
+  margin: @base-margin 0;
+  border-radius: 4px;
+
+  code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: @primary-orange;
+  }
+
+  p {
+    margin: @base-margin-small 0;
+    font-size: 13px;
+  }
+
+  pre {
+    background: white;
+    padding: @base-padding;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: @base-margin-small 0 0 0;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: @text-color-primary;
+  }
+}

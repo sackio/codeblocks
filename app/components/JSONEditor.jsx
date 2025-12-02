@@ -8,6 +8,7 @@ class JSONEditor extends React.Component {
   state = {
     jsonText: '',
     error: null,
+    syntaxWarning: null,
   }
 
   componentDidMount() {
@@ -27,6 +28,7 @@ class JSONEditor extends React.Component {
     this.setState({
       jsonText: JSON.stringify(serialized, null, 2),
       error: null,
+      syntaxWarning: null,
     });
   }
 
@@ -46,10 +48,23 @@ class JSONEditor extends React.Component {
   }
 
   _handleJSONChange = (e) => {
+    const newText = e.target.value;
+
+    // Validate JSON syntax in real-time
+    let syntaxWarning = null;
+    if (newText.trim()) {
+      try {
+        JSON.parse(newText);
+      } catch (err) {
+        syntaxWarning = `Syntax error: ${err.message}`;
+      }
+    }
+
     this.setState({
-      jsonText: e.target.value,
+      jsonText: newText,
       editing: true,
       error: null,
+      syntaxWarning,
     });
   }
 
@@ -98,6 +113,7 @@ class JSONEditor extends React.Component {
       this.setState({
         editing: false,
         error: null,
+        syntaxWarning: null,
       });
     } catch (err) {
       this.setState({ error: err.message });
@@ -136,11 +152,12 @@ class JSONEditor extends React.Component {
       jsonText: '[]',
       editing: false,
       error: null,
+      syntaxWarning: null,
     });
   }
 
   render() {
-    const { jsonText, error } = this.state;
+    const { jsonText, error, syntaxWarning } = this.state;
     const { onClose } = this.props;
 
     return (
@@ -155,6 +172,12 @@ class JSONEditor extends React.Component {
         {error && (
           <div className={styles.error}>
             <i className="ion-alert-circled" /> {error}
+          </div>
+        )}
+
+        {syntaxWarning && !error && (
+          <div className={styles.warning}>
+            <i className="ion-alert" /> {syntaxWarning}
           </div>
         )}
 

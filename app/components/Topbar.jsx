@@ -16,20 +16,23 @@ const Topbar = ({
   onClickToggleGrid,
   brickSize,
   onClickSetBrick,
-  utilsOpen,
-  onClickToggleUtils,
+  onClickReset,
   onClickToggleJSON,
   jsonEditorOpen,
   onClickToggleScript,
   scriptEditorOpen,
-  children
+  onClickToggleInstructions,
+  onClickStartTutorial
 }) => {
   return (
     <div className={styles.topbar}>
-      <div className={styles.section}>
-        <div className={styles.title}>
-          Mode
+      <div className={styles.logo}>
+        <div className={styles.logoIcon}>
+          <i className="ion-cube" />
         </div>
+        <div className={styles.logoText}>CodeBlocks</div>
+      </div>
+      <div className={styles.section}>
         <Button
           active={mode === 'build'}
           onClick={() => onClickSetMode('build')}
@@ -53,17 +56,15 @@ const Topbar = ({
         </div>
         <BrickPicker selectedSize={brickSize} handleSetBrick={onClickSetBrick} />
       </div>
-      <div className={styles.section}>
-        <div className={styles.title}>
-          Scene
-        </div>
-        <Button
-          active={grid}
-          onClick={onClickToggleGrid}
-          icon="grid"
-          text="Grid" />
-      </div>
       <div className={styles.rightSection}>
+        <Button
+          onClick={onClickStartTutorial}
+          icon="information-circled"
+          text="Tutorial" />
+        <Button
+          onClick={onClickToggleInstructions}
+          icon="help-circled"
+          text="Help" />
         <Button
           active={scriptEditorOpen}
           onClick={onClickToggleScript}
@@ -75,12 +76,10 @@ const Topbar = ({
           icon="code"
           text="JSON" />
         <Button
-          active={utilsOpen}
-          onClick={onClickToggleUtils}
-          icon="navicon-round"
-          text="Utils" />
+          onClick={onClickReset}
+          icon="trash-a"
+          text="Reset" />
       </div>
-      {children}
     </div>
   );
 }

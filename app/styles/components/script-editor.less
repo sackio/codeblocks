@@ -34,7 +34,7 @@
 :local(.title) {
   font-size: 18px;
   font-weight: 600;
-  color: @text-color-primary;
+  color: #333;
 }
 
 
@@ -60,6 +60,19 @@
 :local(.error) {
   background: #fee;
   color: #c33;
+  padding: @base-padding;
+  margin: @base-margin;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: @base-margin-small;
+  font-size: 14px;
+}
+
+
+:local(.warning) {
+  background: #fff4e5;
+  color: #e65100;
   padding: @base-padding;
   margin: @base-margin;
   border-radius: 4px;
@@ -100,6 +113,30 @@
 
   &:active:not(:disabled) {
     transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+
+:local(.exampleSelect) {
+  padding: @base-padding-small @base-padding;
+  background: white;
+  color: #333;
+  border: 1px solid @primary-orange;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all @base-transition-time ease-in-out;
+  outline: none;
+
+  &:hover:not(:disabled) {
+    background: #fff5f0;
+    border-color: darken(@primary-orange, 10%);
   }
 
   &:disabled {
@@ -160,7 +197,7 @@
 :local(.cheatsheetTitle) {
   font-size: 18px;
   font-weight: 600;
-  color: @text-color-primary;
+  color: #333;
 }
 
 
@@ -177,7 +214,7 @@
   h3 {
     font-size: 14px;
     font-weight: 600;
-    color: @text-color-primary;
+    color: #333;
     margin: 0 0 @base-margin-small 0;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   }

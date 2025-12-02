@@ -27,13 +27,6 @@ export default function builder(state=initialState, action) {
         color,
       };
     }
-    case BuilderActions.TOGGLE_GRID: {
-      const { grid } = state;
-      return {
-        ...state,
-        grid: !grid,
-      };
-    }
     case BuilderActions.SET_BRICK: {
       const { brick } = action.payload;
       return {

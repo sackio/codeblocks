@@ -47,3 +47,29 @@
   text-transform: uppercase;
   font-size: 1em;
 }
+
+
+:local(.logo) {
+  display: flex;
+  align-items: center;
+  gap: @base-margin;
+  padding: @base-padding @base-padding * 1.5;
+  margin-right: @base-margin * 2;
+}
+
+
+:local(.logoIcon) {
+  font-size: 28px;
+  color: @primary-orange;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+:local(.logoText) {
+  font-size: 20px;
+  font-weight: 700;
+  color: @text-color-primary;
+  letter-spacing: -0.5px;
+}

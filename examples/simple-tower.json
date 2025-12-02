@@ -1,0 +1,47 @@
+[
+  {
+    "color": "#ff6b35",
+    "dimensions": {"x": 2, "z": 2, "type": "rectangle"},
+    "rotation": 0,
+    "translation": 0,
+    "intersect": {
+      "point": {"x": 0, "y": 12, "z": 0}
+    }
+  },
+  {
+    "color": "#ff8c42",
+    "dimensions": {"x": 2, "z": 2, "type": "rectangle"},
+    "rotation": 0,
+    "translation": 0,
+    "intersect": {
+      "point": {"x": 0, "y": 36, "z": 0}
+    }
+  },
+  {
+    "color": "#ffaa5a",
+    "dimensions": {"x": 2, "z": 2, "type": "rectangle"},
+    "rotation": 0,
+    "translation": 0,
+    "intersect": {
+      "point": {"x": 0, "y": 60, "z": 0}
+    }
+  },
+  {
+    "color": "#ffc872",
+    "dimensions": {"x": 2, "z": 2, "type": "rectangle"},
+    "rotation": 0,
+    "translation": 0,
+    "intersect": {
+      "point": {"x": 0, "y": 84, "z": 0}
+    }
+  },
+  {
+    "color": "#ffe68a",
+    "dimensions": {"x": 2, "z": 2, "type": "rectangle"},
+    "rotation": 0,
+    "translation": 0,
+    "intersect": {
+      "point": {"x": 0, "y": 108, "z": 0}
+    }
+  }
+]

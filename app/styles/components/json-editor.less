@@ -34,7 +34,7 @@
 :local(.title) {
   font-size: 18px;
   font-weight: 600;
-  color: @text-color-primary;
+  color: #333;
 }
 
 
@@ -60,6 +60,19 @@
 :local(.error) {
   background: #fee;
   color: #c33;
+  padding: @base-padding;
+  margin: @base-margin;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: @base-margin-small;
+  font-size: 14px;
+}
+
+
+:local(.warning) {
+  background: #fff4e5;
+  color: #e65100;
   padding: @base-padding;
   margin: @base-margin;
   border-radius: 4px;

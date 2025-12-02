@@ -7,7 +7,6 @@ import {
   getColor,
   getIsGridVisible,
   getBrickDimensions,
-  getAreUtilsOpen,
   getBricks,
 } from 'selectors';
 import {
@@ -15,7 +14,6 @@ import {
   setColor,
   toggleGrid,
   setBrick,
-  toggleUtils,
   addBrick,
   removeBrick,
   updateBrick,
@@ -24,10 +22,10 @@ import {
 } from 'actions';
 import Scene from 'components/engine/Scene';
 import Topbar from 'components/Topbar';
-import Help from 'components/Help';
-import Sidebar from 'components/Sidebar';
 import JSONEditor from 'components/JSONEditor';
 import ScriptEditor from 'components/ScriptEditor';
+import InstructionsModal from 'components/InstructionsModal';
+import Tutorial from 'components/Tutorial';
 
 import styles from 'styles/containers/builder';
 
@@ -36,6 +34,11 @@ class Builder extends React.Component {
   state = {
     jsonEditorOpen: false,
     scriptEditorOpen: false,
+    instructionsOpen: false,
+  }
+
+  componentDidMount() {
+    this.tutorial = new Tutorial();
   }
 
   _toggleJSONEditor = () => {
@@ -44,6 +47,22 @@ class Builder extends React.Component {
 
   _toggleScriptEditor = () => {
     this.setState({ scriptEditorOpen: !this.state.scriptEditorOpen });
+  }
+
+  _toggleInstructions = () => {
+    this.setState({ instructionsOpen: !this.state.instructionsOpen });
+  }
+
+  _handleReset = () => {
+    if (window.confirm('Are you sure you want to reset the scene? This will delete all bricks.')) {
+      this.props.resetScene();
+    }
+  }
+
+  _handleStartTutorial = () => {
+    if (this.tutorial) {
+      this.tutorial.start();
+    }
   }
 
   render() {
@@ -56,8 +75,6 @@ class Builder extends React.Component {
       toggleGrid,
       dimensions,
       setBrick,
-      utilsOpen,
-      toggleUtils,
       removeBrick,
       addBrick,
       bricks,
@@ -65,7 +82,7 @@ class Builder extends React.Component {
       resetScene,
       setScene
     } = this.props;
-    const { jsonEditorOpen, scriptEditorOpen } = this.state;
+    const { jsonEditorOpen, scriptEditorOpen, instructionsOpen } = this.state;
 
     return (
       <div className={styles.builder}>
@@ -78,14 +95,14 @@ class Builder extends React.Component {
           grid={gridVisible}
           brickSize={dimensions}
           onClickSetBrick={setBrick}
-          utilsOpen={utilsOpen}
-          onClickToggleUtils={toggleUtils}
+          onClickReset={this._handleReset}
           onClickToggleJSON={this._toggleJSONEditor}
           jsonEditorOpen={jsonEditorOpen}
           onClickToggleScript={this._toggleScriptEditor}
-          scriptEditorOpen={scriptEditorOpen}>
-          <Sidebar utilsOpen={utilsOpen} resetScene={resetScene} objects={bricks} importScene={setScene} />
-        </Topbar>
+          scriptEditorOpen={scriptEditorOpen}
+          onClickToggleInstructions={this._toggleInstructions}
+          onClickStartTutorial={this._handleStartTutorial}
+        />
         <Scene
           brickColor={color}
           objects={bricks}
@@ -113,7 +130,11 @@ class Builder extends React.Component {
             onClose={this._toggleScriptEditor}
           />
         )}
-        <Help inversed={utilsOpen} />
+        {instructionsOpen && (
+          <InstructionsModal
+            onClose={this._toggleInstructions}
+          />
+        )}
       </div>
     );
   }
@@ -125,7 +146,6 @@ const mapStateToProps = (state) => ({
   color: getColor(state),
   gridVisible: getIsGridVisible(state),
   dimensions: getBrickDimensions(state),
-  utilsOpen: getAreUtilsOpen(state),
   bricks: getBricks(state),
 });
 
@@ -135,7 +155,6 @@ const mapDispatchToProps = {
   setColor,
   toggleGrid,
   setBrick,
-  toggleUtils,
   removeBrick,
   addBrick,
   updateBrick,
