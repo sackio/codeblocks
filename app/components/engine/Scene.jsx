@@ -29,6 +29,11 @@ class Scene extends React.Component {
     isRDown: false,
     rotation: 0,
     coreObjects: [],
+    selectedBrick: null,
+    isDraggingBrick: false,
+    lastClickTime: 0,
+    lastClickTarget: null,
+    longPressTimer: null,
   }
 
   constructor(props) {
@@ -54,6 +59,7 @@ class Scene extends React.Component {
     const { mode, grid, dimensions, objects } = this.props;
     if (mode !== prevProps.mode && mode === 'paint') {
       this.rollOverBrick.visible = false;
+      this._deselectBrick(); // Deselect when switching to paint mode
     }
     else if (mode !== prevProps.mode && mode === 'build') {
       this.rollOverBrick.visible = true;
@@ -144,6 +150,11 @@ class Scene extends React.Component {
     document.addEventListener( 'keydown', (event) => this._onKeyDown(event, this), false );
     document.addEventListener( 'keyup', (event) => this._onKeyUp(event, this), false );
     window.addEventListener('resize', (event) => this._onWindowResize(event, this), false);
+
+    // Touch events for mobile support
+    document.addEventListener( 'touchstart', (event) => this._onTouchStart(event, this), false );
+    document.addEventListener( 'touchmove', (event) => this._onTouchMove(event, this), false );
+    document.addEventListener( 'touchend', (event) => this._onTouchEnd(event, this), false );
   }
 
   _onWindowResize(event, scene) {
@@ -153,8 +164,8 @@ class Scene extends React.Component {
   }
 
   _onMouseMove(event, scene) {
-    const { isDDown, isRDown } = this.state;
-    const { mode, dimensions, objects } = this.props;
+    const { isDDown, isRDown, isDraggingBrick, selectedBrick } = this.state;
+    const { mode, dimensions, objects, updateObject } = this.props;
     event.preventDefault();
     const drag = true;
     this.setState({ drag });
@@ -163,6 +174,30 @@ class Scene extends React.Component {
     const evenDepth = dimensions.z % 2 === 0;
     scene.mouse.set( ( (event.clientX / window.innerWidth) ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
     scene.raycaster.setFromCamera( scene.mouse, scene.camera );
+
+    // Handle dragging selected brick
+    if (isDraggingBrick && selectedBrick) {
+      // Raycast to plane at the brick's current Y level
+      const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -selectedBrick.position.y);
+      const intersectPoint = new THREE.Vector3();
+      scene.raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+
+      if (intersectPoint) {
+        // Move brick to new position (with offset)
+        selectedBrick.position.x = intersectPoint.x + scene.dragOffset.x;
+        selectedBrick.position.z = intersectPoint.z + scene.dragOffset.z;
+
+        // Update selection box
+        if (scene.selectionBox) {
+          scene.selectionBox.update();
+        }
+
+        // Update in Redux store
+        updateObject(selectedBrick);
+      }
+      return;
+    }
+
     const intersects = scene.raycaster.intersectObjects( [ ...objects, this.plane ], true );
     if ( intersects.length > 0) {
       const intersect = intersects[ 0 ];
@@ -182,14 +217,30 @@ class Scene extends React.Component {
   }
 
   _onMouseDown( event ) {
+    const { selectedBrick } = this.state;
+    const { objects } = this.props;
+
     this.setState({
       drag: false,
     });
+
+    // Check if clicking on the selected brick to start dragging
+    if (selectedBrick && event.target.localName === 'canvas') {
+      this.mouse.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
+      this.raycaster.setFromCamera( this.mouse, this.camera );
+      const intersects = this.raycaster.intersectObjects( objects );
+
+      if (intersects.length > 0 && intersects[0].object === selectedBrick) {
+        this.setState({ isDraggingBrick: true });
+        // Store the initial offset between mouse and brick center
+        this.dragOffset = new THREE.Vector3().subVectors(selectedBrick.position, intersects[0].point);
+      }
+    }
   }
 
   _onMouseUp(event, scene) {
     const { mode, objects } = this.props;
-    const { drag, isDDown, isRDown } = this.state;
+    const { drag, isDDown, isRDown, isDraggingBrick, lastClickTime, lastClickTarget } = this.state;
     if (event.target.localName !== 'canvas') return;
     event.preventDefault();
     if (! drag) {
@@ -203,15 +254,39 @@ class Scene extends React.Component {
           if ( isDDown ) {
             this._deleteCube(intersect);
           }
-          // create cube
-          else {
+          // Double-click to select/deselect brick, single click to stack
+          else if (intersect.object !== this.plane && intersect.object instanceof Brick) {
+            const now = Date.now();
+            const timeSinceLastClick = now - lastClickTime;
+            const isDoubleClick = timeSinceLastClick < 300 && lastClickTarget === intersect.object;
+
+            if (isDoubleClick) {
+              // Double-click: select or deselect
+              if (this.state.selectedBrick === intersect.object) {
+                this._deselectBrick();
+              } else {
+                this._selectBrick(intersect.object);
+              }
+              this.setState({ lastClickTime: 0, lastClickTarget: null });
+            } else {
+              // First click: create brick on top (stacking) and record click
+              this._createCube(intersect, scene.rollOverBrick);
+              this.setState({ lastClickTime: now, lastClickTarget: intersect.object });
+            }
+          }
+          // create cube if clicking on plane
+          else if (intersect.object === this.plane) {
             this._createCube(intersect, scene.rollOverBrick);
+            this.setState({ lastClickTime: 0, lastClickTarget: null });
           }
         }
         else if (mode === 'paint') {
           this._paintCube(intersect);
         }
       }
+    }
+    else if (isDraggingBrick) {
+      this.setState({ isDraggingBrick: false });
     }
   }
 
@@ -258,25 +333,143 @@ class Scene extends React.Component {
     }
   }
 
+  _selectBrick(brick) {
+    const { selectedBrick } = this.state;
+
+    // Deselect previous brick
+    if (selectedBrick) {
+      this._deselectBrick();
+    }
+
+    // Select new brick
+    this.setState({ selectedBrick: brick });
+
+    // Add visual feedback (outline box)
+    const boxHelper = new THREE.BoxHelper(brick, 0xffff00); // Yellow outline
+    boxHelper.name = 'selectionBox';
+    this.scene.add(boxHelper);
+    this.selectionBox = boxHelper;
+  }
+
+  _deselectBrick() {
+    const { selectedBrick } = this.state;
+    if (selectedBrick && this.selectionBox) {
+      this.scene.remove(this.selectionBox);
+      this.selectionBox = null;
+      this.setState({ selectedBrick: null });
+    }
+  }
+
+  _moveBrickBy(dx, dy, dz) {
+    const { selectedBrick } = this.state;
+    const { updateObject } = this.props;
+    if (!selectedBrick) return;
+
+    // Move the brick
+    selectedBrick.position.x += dx;
+    selectedBrick.position.y += dy;
+    selectedBrick.position.z += dz;
+
+    // Update the selection box
+    if (this.selectionBox) {
+      this.selectionBox.update();
+    }
+
+    // Update in Redux store
+    updateObject(selectedBrick);
+  }
+
+  _deleteSelectedBrick() {
+    const { selectedBrick } = this.state;
+    const { removeObject } = this.props;
+    if (!selectedBrick) return;
+
+    // Remove selection box
+    if (this.selectionBox) {
+      this.scene.remove(this.selectionBox);
+      this.selectionBox = null;
+    }
+
+    // Remove brick
+    selectedBrick.geometry.dispose();
+    removeObject(selectedBrick.customId);
+    this.setState({ selectedBrick: null });
+  }
+
   _onKeyDown(event, scene) {
+    const { selectedBrick } = scene.state;
+    const moveAmount = base; // 25 pixels per arrow key press
+
     switch(event.keyCode) {
-      case 16:
+      case 16: // Shift
         scene.setState({
           isShiftDown: true,
         });
         break;
-      case 68:
+      case 68: // D key - delete mode
         scene.setState({
           isDDown: true,
         });
         scene.rollOverBrick.visible = false;
         break;
-      case 82:
+      case 82: // R key - rotate
         scene.rollOverBrick.rotate( Math.PI / 2 );
         scene.setState({
           isRDown: true,
           rotation: scene.rollOverBrick.rotation.y,
         });
+        break;
+      case 46: // Delete key - delete selected brick
+        scene._deleteSelectedBrick();
+        break;
+      case 27: // Escape key - deselect brick
+        scene._deselectBrick();
+        break;
+      case 37: // Left arrow
+        if (selectedBrick) {
+          scene._moveBrickBy(-moveAmount, 0, 0);
+        } else {
+          // Rotate camera left around target
+          scene._rotateCameraAroundTarget(-Math.PI / 16);
+        }
+        event.preventDefault();
+        break;
+      case 38: // Up arrow
+        if (selectedBrick) {
+          scene._moveBrickBy(0, 0, -moveAmount);
+        } else {
+          // Tilt camera up
+          scene._tiltCamera(Math.PI / 16);
+        }
+        event.preventDefault();
+        break;
+      case 39: // Right arrow
+        if (selectedBrick) {
+          scene._moveBrickBy(moveAmount, 0, 0);
+        } else {
+          // Rotate camera right around target
+          scene._rotateCameraAroundTarget(Math.PI / 16);
+        }
+        event.preventDefault();
+        break;
+      case 40: // Down arrow
+        if (selectedBrick) {
+          scene._moveBrickBy(0, 0, moveAmount);
+        } else {
+          // Tilt camera down
+          scene._tiltCamera(-Math.PI / 16);
+        }
+        event.preventDefault();
+        break;
+      case 187: // + key (also = key)
+      case 107: // Numpad +
+        scene._zoomIn();
+        event.preventDefault();
+        break;
+      case 189: // - key
+      case 109: // Numpad -
+        scene._zoomOut();
+        event.preventDefault();
         break;
     }
   }
@@ -301,6 +494,133 @@ class Scene extends React.Component {
         });
         break;
     }
+  }
+
+  _onTouchStart(event, scene) {
+    const { selectedBrick } = this.state;
+    const { objects, mode } = this.props;
+
+    if (event.target.localName !== 'canvas' || mode !== 'build') return;
+
+    const touch = event.touches[0];
+    this.touchStartTime = Date.now();
+    this.touchStartPos = { x: touch.clientX, y: touch.clientY };
+
+    // Set up long-press detection for mobile selection
+    const longPressTimer = setTimeout(() => {
+      // Long press detected - select brick
+      scene.mouse.set( ( touch.clientX / window.innerWidth ) * 2 - 1, - ( touch.clientY / window.innerHeight ) * 2 + 1 );
+      scene.raycaster.setFromCamera( scene.mouse, scene.camera );
+      const intersects = scene.raycaster.intersectObjects( objects );
+
+      if (intersects.length > 0 && intersects[0].object instanceof Brick) {
+        if (this.state.selectedBrick === intersects[0].object) {
+          this._deselectBrick();
+        } else {
+          this._selectBrick(intersects[0].object);
+        }
+        // Vibrate feedback if available
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+      }
+    }, 500); // 500ms for long press
+
+    this.setState({ longPressTimer });
+
+    // Check if tapping on selected brick to start dragging
+    if (selectedBrick) {
+      scene.mouse.set( ( touch.clientX / window.innerWidth ) * 2 - 1, - ( touch.clientY / window.innerHeight ) * 2 + 1 );
+      scene.raycaster.setFromCamera( scene.mouse, scene.camera );
+      const intersects = scene.raycaster.intersectObjects( objects );
+
+      if (intersects.length > 0 && intersects[0].object === selectedBrick) {
+        this.setState({ isDraggingBrick: true });
+        this.dragOffset = new THREE.Vector3().subVectors(selectedBrick.position, intersects[0].point);
+      }
+    }
+  }
+
+  _onTouchMove(event, scene) {
+    const { longPressTimer, isDraggingBrick, selectedBrick } = this.state;
+    const { objects, dimensions, updateObject } = this.props;
+
+    if (event.target.localName !== 'canvas') return;
+
+    // Cancel long press if finger moves
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      this.setState({ longPressTimer: null });
+    }
+
+    const touch = event.touches[0];
+
+    // Handle dragging selected brick
+    if (isDraggingBrick && selectedBrick) {
+      event.preventDefault();
+      scene.mouse.set( ( touch.clientX / window.innerWidth ) * 2 - 1, - ( touch.clientY / window.innerHeight ) * 2 + 1 );
+      scene.raycaster.setFromCamera( scene.mouse, scene.camera );
+
+      const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -selectedBrick.position.y);
+      const intersectPoint = new THREE.Vector3();
+      scene.raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+
+      if (intersectPoint) {
+        selectedBrick.position.x = intersectPoint.x + scene.dragOffset.x;
+        selectedBrick.position.z = intersectPoint.z + scene.dragOffset.z;
+
+        if (scene.selectionBox) {
+          scene.selectionBox.update();
+        }
+
+        updateObject(selectedBrick);
+      }
+    }
+  }
+
+  _onTouchEnd(event, scene) {
+    const { longPressTimer, isDraggingBrick } = this.state;
+    const { mode, objects } = this.props;
+
+    if (event.target.localName !== 'canvas') return;
+
+    // Clear long press timer
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      this.setState({ longPressTimer: null });
+    }
+
+    // End drag if dragging
+    if (isDraggingBrick) {
+      this.setState({ isDraggingBrick: false });
+      return;
+    }
+
+    // Handle tap for creating bricks (if not long press or drag)
+    if (mode === 'build' && this.touchStartTime) {
+      const touchDuration = Date.now() - this.touchStartTime;
+      const touch = event.changedTouches[0];
+      const touchMoved = Math.abs(touch.clientX - this.touchStartPos.x) > 10 ||
+                        Math.abs(touch.clientY - this.touchStartPos.y) > 10;
+
+      // Quick tap (not long press, not moved) - create brick
+      if (touchDuration < 500 && !touchMoved) {
+        scene.mouse.set( ( touch.clientX / window.innerWidth ) * 2 - 1, - ( touch.clientY / window.innerHeight ) * 2 + 1 );
+        scene.raycaster.setFromCamera( scene.mouse, scene.camera );
+        const intersects = scene.raycaster.intersectObjects( [ ...objects, this.plane ] );
+
+        if (intersects.length > 0) {
+          const intersect = intersects[0];
+          // Create brick when tapping on plane or existing brick (stacking)
+          if (intersect.object === this.plane || intersect.object instanceof Brick) {
+            this._createCube(intersect, scene.rollOverBrick);
+          }
+        }
+      }
+    }
+
+    this.touchStartTime = null;
+    this.touchStartPos = null;
   }
 
   _start() {
@@ -417,8 +737,71 @@ class Scene extends React.Component {
     };
   }
 
+  _rotateCameraAroundTarget = (angle) => {
+    // Rotate camera around Y axis (vertical) around the target point
+    const target = this.controls.target;
+    const position = this.camera.position;
+
+    // Calculate offset from target
+    const offset = new THREE.Vector3(
+      position.x - target.x,
+      position.y - target.y,
+      position.z - target.z
+    );
+
+    // Rotate offset around Y axis
+    const cosAngle = Math.cos(angle);
+    const sinAngle = Math.sin(angle);
+    const x = offset.x * cosAngle - offset.z * sinAngle;
+    const z = offset.x * sinAngle + offset.z * cosAngle;
+
+    // Apply new position
+    this.camera.position.set(
+      target.x + x,
+      position.y,
+      target.z + z
+    );
+
+    this.camera.lookAt(target);
+    this.controls.update();
+  }
+
+  _tiltCamera = (angle) => {
+    // Tilt camera up/down around the target point
+    const target = this.controls.target;
+    const position = this.camera.position;
+
+    // Calculate offset from target
+    const offset = new THREE.Vector3(
+      position.x - target.x,
+      position.y - target.y,
+      position.z - target.z
+    );
+
+    const distance = offset.length();
+    const currentAngle = Math.atan2(offset.y, Math.sqrt(offset.x * offset.x + offset.z * offset.z));
+    const newAngle = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, currentAngle + angle));
+
+    // Calculate horizontal distance
+    const horizontalDistance = Math.sqrt(offset.x * offset.x + offset.z * offset.z);
+    const horizontalAngle = Math.atan2(offset.z, offset.x);
+
+    // Calculate new position
+    const newY = distance * Math.sin(newAngle);
+    const newHorizontalDistance = distance * Math.cos(newAngle);
+
+    this.camera.position.set(
+      target.x + newHorizontalDistance * Math.cos(horizontalAngle),
+      target.y + newY,
+      target.z + newHorizontalDistance * Math.sin(horizontalAngle)
+    );
+
+    this.camera.lookAt(target);
+    this.controls.update();
+  }
+
   render() {
-    const { brickHover, isShiftDown, isDDown, isRDown } = this.state;
+    const { brickHover, isShiftDown, isDDown, isRDown, selectedBrick } = this.state;
     const { mode, shifted } = this.props;
     return(
       <div>
@@ -442,6 +825,12 @@ class Scene extends React.Component {
           <Message>
             <i className="ion-refresh" />
             <span>Rotating bricks</span>
+          </Message>
+        </If>
+        <If cond={selectedBrick && mode === 'build' && !isDDown && !isRDown}>
+          <Message>
+            <i className="ion-arrow-move" />
+            <span>Brick selected • Arrow keys or drag to move • Delete to remove • Esc to deselect</span>
           </Message>
         </If>
       </div>

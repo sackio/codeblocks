@@ -34,6 +34,7 @@ module.exports = Object.assign({}, webpackBaseConfig, {
    devServer: {
     host: '0.0.0.0',
     port: '5000',
+    disableHostCheck: true,
     // inline: true,
     // hot: true,
     stats: {
