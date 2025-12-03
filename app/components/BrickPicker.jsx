@@ -71,13 +71,19 @@ class BrickPicker extends React.Component {
   }
 
   render() {
-    const { selectedSize, handleSetBrick } = this.props;
+    const { selectedSize, handleSetBrick, color } = this.props;
     const { open } = this.state;
+
+    // Create inline style for the brick icon color
+    const iconStyle = color ? {
+      color: `rgba(${color.r || 0}, ${color.g || 0}, ${color.b || 0}, ${color.a !== undefined ? color.a : 1})`
+    } : {};
+
     return (
       <React.Fragment>
         <div className={styles.brickPicker}>
           <div className={styles.brick} onClick={this._togglePicker}>
-            <div className={styles.brickIcon}>
+            <div className={styles.brickIcon} style={iconStyle}>
               {getBrickIconFromDimensions(selectedSize)}
             </div>
             {/* {displayNameFromDimensions(selectedSize)} */}
@@ -134,7 +140,6 @@ class BrickPicker extends React.Component {
                       <option value={shapeTypes.CORNER_OUTSIDE}>Corner Outside</option>
                       <option value={shapeTypes.CORNER_ROUND}>Corner Round</option>
                       <option value={shapeTypes.CURVE}>Curve</option>
-                      <option value={shapeTypes.ARCH}>Arch</option>
                       <option value={shapeTypes.CYLINDER}>Cylinder</option>
                       <option value={shapeTypes.CONE}>Cone</option>
                       <option value={shapeTypes.WEDGE}>Wedge</option>

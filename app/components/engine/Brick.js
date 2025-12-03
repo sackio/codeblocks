@@ -290,11 +290,51 @@ function createWedgeMesh(material, width, height, depth, dimensions) {
 function createArchMesh(material, width, height, depth, dimensions) {
   let meshes = [];
 
-  // Create arch using a box with a cylindrical cutout on top
-  // Simplified: just use a box for now
-  const cubeGeo = new THREE.BoxGeometry( width - 0.1, height - 0.1, depth - 0.1 );
+  // Create arch using an extruded 2D shape with arch cutout
+  const shape = new THREE.Shape();
 
-  const mesh = new THREE.Mesh(cubeGeo, material);
+  // Outer rectangle
+  const w = width - 0.1;
+  const h = height - 0.1;
+
+  shape.moveTo(-w/2, -h/2);
+  shape.lineTo(w/2, -h/2);
+  shape.lineTo(w/2, h/2);
+  shape.lineTo(-w/2, h/2);
+  shape.lineTo(-w/2, -h/2);
+
+  // Create arch hole (semicircular cutout)
+  const archWidth = w * 0.5; // Opening is 50% of width
+  const archHeight = h * 0.6; // Arch goes up 60% of height
+  const archRadius = archWidth / 2;
+  const archBaseY = -h/2 + archHeight - archRadius;
+
+  // Create a path for the arch hole
+  const hole = new THREE.Path();
+
+  // Start at bottom left of arch opening
+  hole.moveTo(-archWidth/2, -h/2);
+  // Line up to where arch curve starts
+  hole.lineTo(-archWidth/2, archBaseY);
+  // Create semicircular arc
+  hole.absarc(0, archBaseY, archRadius, Math.PI, 0, false);
+  // Line down right side
+  hole.lineTo(archWidth/2, -h/2);
+  // Close the hole
+  hole.lineTo(-archWidth/2, -h/2);
+
+  shape.holes.push(hole);
+
+  const extrudeSettings = {
+    steps: 1,
+    depth: depth - 0.1,
+    bevelEnabled: false
+  };
+
+  const archGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  archGeo.center();
+
+  const mesh = new THREE.Mesh(archGeo, material);
   meshes.push(mesh);
   mesh.castShadow = true;
   mesh.receiveShadow = true;

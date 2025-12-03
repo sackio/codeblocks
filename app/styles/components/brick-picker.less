@@ -35,6 +35,21 @@
 :local(.brickIcon) {
   height: 40px;
   // margin-right: @base-margin-small;
+
+  // Make SVG elements use the color from the parent
+  // Only applies to elements without explicit fill attributes
+  svg {
+    fill: currentColor;
+
+    // Let paths, rects, etc inherit color only if they don't have explicit fills
+    path:not([fill]),
+    rect:not([fill]),
+    polygon:not([fill]),
+    circle:not([fill]),
+    ellipse:not([fill]) {
+      fill: currentColor;
+    }
+  }
 }
 
 
@@ -87,6 +102,13 @@
   max-width: 800px;
   max-height: 90vh;
   overflow-y: auto;
+
+  @media (max-width: 768px) {
+    min-width: 90vw;
+    max-width: 95vw;
+    padding: @base-padding * 1.5;
+    max-height: 85vh;
+  }
 }
 
 
@@ -97,9 +119,17 @@
   cursor: pointer;
   font-size: 24px;
   color: #999;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     color: #333;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 32px;
+    padding: @base-padding-small;
+    top: @base-padding-small;
+    right: @base-padding-small;
   }
 }
 
@@ -209,6 +239,12 @@
     outline: none;
     border-color: @primary-orange;
   }
+
+  @media (max-width: 768px) {
+    font-size: 18px;
+    padding: @base-padding @base-padding * 1.5;
+    min-height: 48px;
+  }
 }
 
 
@@ -230,6 +266,12 @@
   &:hover {
     border-color: #aaa;
   }
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    padding: @base-padding @base-padding * 1.5;
+    min-height: 48px;
+  }
 }
 
 
@@ -244,6 +286,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all @base-transition-time ease-in-out;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background-color: darken(@primary-orange, 10%);
@@ -253,6 +296,12 @@
 
   &:active {
     transform: translateY(0);
+  }
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    padding: @base-padding * 1.5 @base-padding * 2;
+    min-height: 52px;
   }
 }
 
@@ -357,6 +406,11 @@
   grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
   gap: @base-margin;
   padding: @base-padding;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: @base-margin * 1.5;
+  }
 }
 
 
@@ -371,12 +425,19 @@
   border-radius: 6px;
   transition: all @base-transition-time ease-in-out;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     background-color: #fff;
     border-color: @primary-orange;
     transform: translateY(-2px);
     box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  @media (max-width: 768px) {
+    padding: @base-padding;
+    min-height: 70px;
+    min-width: 70px;
   }
 }
 

@@ -452,9 +452,12 @@ for (let i = 0; i < 5; i++) {
   }
 
   _handleRun = async () => {
-    const { scriptText, resetScene } = this.props;
+    const { scriptText, resetScene, onClose } = this.props;
 
     this.setState({ running: true, error: null });
+
+    // Hide the script editor temporarily so user can see the scene
+    onClose();
 
     // Clear the scene before running the script
     resetScene();
@@ -519,11 +522,15 @@ for (let i = 0; i < 5; i++) {
       );
 
       this.setState({ running: false, syntaxWarning: null });
+      // Reopen the script editor after script completes successfully
+      onClose();
     } catch (err) {
       this.setState({
         running: false,
         error: err.message
       });
+      // Reopen the script editor even if there was an error
+      onClose();
     }
   }
 
