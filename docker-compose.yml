@@ -7,13 +7,21 @@ services:
       dockerfile: Dockerfile.dev
     container_name: codeblocks-frontend
     ports:
-      - "9000:5000"
+      - "9000:9000"
     restart: unless-stopped
     networks:
       - codeblocks-network
     volumes:
       - ./app:/app/app
       - ./assets:/app/assets
+      - ./server.js:/app/server.js
+      - ./docs:/app/docs
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - PORT=9000
+    env_file:
+      - .env
 
 networks:
   codeblocks-network:

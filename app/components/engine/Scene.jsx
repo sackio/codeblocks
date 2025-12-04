@@ -800,6 +800,19 @@ class Scene extends React.Component {
     this.controls.update();
   }
 
+  // Capture screenshot of the canvas
+  _captureScreenshot = () => {
+    if (!this.renderer || !this.renderer.domElement) {
+      return null;
+    }
+
+    // Render the scene to ensure we have the latest frame
+    this.renderer.render(this.scene, this.camera);
+
+    // Get the canvas as base64 data URL
+    return this.renderer.domElement.toDataURL('image/png');
+  }
+
   render() {
     const { brickHover, isShiftDown, isDDown, isRDown, selectedBrick } = this.state;
     const { mode, shifted } = this.props;

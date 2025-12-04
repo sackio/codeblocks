@@ -1,5 +1,6 @@
 import React from 'react';
 import Brick from 'components/engine/Brick';
+import AIHelper from 'components/AIHelper';
 
 import styles from 'styles/components/json-editor';
 
@@ -9,6 +10,7 @@ class JSONEditor extends React.Component {
     jsonText: '',
     error: null,
     syntaxWarning: null,
+    aiHelperOpen: false,
   }
 
   componentDidMount() {
@@ -156,9 +158,51 @@ class JSONEditor extends React.Component {
     });
   }
 
+  _toggleAIHelper = () => {
+    this.setState({ aiHelperOpen: !this.state.aiHelperOpen });
+  }
+
+  _handleAIGenerate = (generatedJSON) => {
+    // Validate JSON syntax
+    let syntaxWarning = null;
+    if (generatedJSON.trim()) {
+      try {
+        JSON.parse(generatedJSON);
+      } catch (err) {
+        syntaxWarning = `Syntax error: ${err.message}`;
+      }
+    }
+
+    this.setState({
+      jsonText: generatedJSON,
+      editing: true,
+      error: null,
+      syntaxWarning,
+    });
+  }
+
+  _handleAIEdit = (editedJSON) => {
+    // Validate JSON syntax
+    let syntaxWarning = null;
+    if (editedJSON.trim()) {
+      try {
+        JSON.parse(editedJSON);
+      } catch (err) {
+        syntaxWarning = `Syntax error: ${err.message}`;
+      }
+    }
+
+    this.setState({
+      jsonText: editedJSON,
+      editing: true,
+      error: null,
+      syntaxWarning,
+    });
+  }
+
   render() {
     const { jsonText, error, syntaxWarning } = this.state;
-    const { onClose } = this.props;
+    const { onClose, captureScreenshot } = this.props;
 
     return (
       <div className={styles.container}>
@@ -200,6 +244,9 @@ class JSONEditor extends React.Component {
           <button className={styles.buttonDanger} onClick={this._handleClear}>
             <i className="ion-trash-a" /> Clear All
           </button>
+          <button className={styles.button} onClick={this._toggleAIHelper}>
+            <i className="ion-wand" /> AI Helper
+          </button>
         </div>
 
         <textarea
@@ -207,6 +254,18 @@ class JSONEditor extends React.Component {
           value={jsonText}
           onChange={this._handleJSONChange}
           spellCheck={false}
+        />
+
+        <AIHelper
+          isOpen={this.state.aiHelperOpen}
+          onClose={this._toggleAIHelper}
+          title="AI JSON Assistant"
+          apiEndpoint="/api/chat/json"
+          contentKey="currentJSON"
+          currentContent={jsonText}
+          onGenerate={this._handleAIGenerate}
+          onEdit={this._handleAIEdit}
+          captureScreenshot={captureScreenshot}
         />
       </div>
     );

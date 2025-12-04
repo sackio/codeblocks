@@ -40,7 +40,9 @@ class Topbar extends React.Component {
       onClickToggleScript,
       scriptEditorOpen,
       onClickToggleInstructions,
-      onClickStartTutorial
+      onClickStartTutorial,
+      onClickToggleBuildManager,
+      buildManagerOpen
     } = this.props;
 
     const { mobileMenuOpen } = this.state;
@@ -98,6 +100,11 @@ class Topbar extends React.Component {
               onClick={() => { onClickToggleJSON(); this._closeMobileMenu(); }}
               icon="code"
               text="JSON" />
+            <Button
+              active={buildManagerOpen}
+              onClick={() => { onClickToggleBuildManager(); this._closeMobileMenu(); }}
+              icon="folder"
+              text="Builds" />
             <Button
               onClick={() => { onClickReset(); this._closeMobileMenu(); }}
               icon="trash-a"

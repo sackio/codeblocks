@@ -2,6 +2,7 @@ import React from 'react';
 import Brick from 'components/engine/Brick';
 import { RGBAToHexString } from 'utils';
 import { examplesList } from 'utils/examples';
+import AIHelper from 'components/AIHelper';
 
 import styles from 'styles/components/script-editor';
 
@@ -12,6 +13,7 @@ class ScriptEditor extends React.Component {
     running: false,
     cheatsheetOpen: false,
     syntaxWarning: null,
+    aiHelperOpen: false,
   }
 
   componentDidMount() {
@@ -115,6 +117,10 @@ for (let i = 0; i < 5; i++) {
 
   _validateJavaScriptSyntax = (code) => {
     try {
+      // Wrap code in async IIFE to allow await usage
+      // We need to ensure the code is properly wrapped before validation
+      const wrappedCode = `return (async function() {\n${code}\n})();`;
+
       // Try to parse as a function to check syntax
       new Function(
         'createBrick',
@@ -139,17 +145,40 @@ for (let i = 0; i < 5; i++) {
         'setCameraView',
         'getCameraPosition',
         'getCameraTarget',
-        `return (async () => {\n${code}\n})();`
+        'BRICK_HEIGHT',
+        'BRICK_SPACING',
+        'STUD_SIZE',
+        'isPositionOccupied',
+        'findBricksAt',
+        'findBricksByColor',
+        'findBrickById',
+        'snapToGrid',
+        'getNextFreePosition',
+        'getBrickCount',
+        'deleteBricks',
+        'createBricks',
+        wrappedCode
       );
       return null; // No error
     } catch (err) {
       // Extract useful error information
       let message = err.message;
 
+      // Filter out confusing async-related errors since we wrap in async IIFE
+      if (message.includes('await is only valid in async')) {
+        // This shouldn't happen with our wrapping, but if it does, provide helpful message
+        return null; // Suppress this error since the actual execution will handle it correctly
+      }
+
       // Try to extract line number if available
       const lineMatch = message.match(/line (\d+)/i);
       if (lineMatch) {
-        return `Syntax error at line ${lineMatch[1]}: ${message}`;
+        // Subtract 1 from line number since we add one line for the async wrapper
+        const actualLine = parseInt(lineMatch[1]) - 1;
+        if (actualLine > 0) {
+          return `Syntax error at line ${actualLine}: ${message}`;
+        }
+        return `Syntax error: ${message}`;
       }
 
       return `Syntax error: ${message}`;
@@ -277,7 +306,9 @@ for (let i = 0; i < 5; i++) {
           color = '#ff6b35',
           position = { x: 0, y: 12, z: 0 },
           rotation = 0,
-          dimensions = { x: 2, z: 2 }
+          dimensions = { x: 2, z: 2 },
+          id = null, // Optional custom ID
+          render = true // Whether to add to scene immediately
         } = options;
 
         // Merge type into dimensions to ensure it's always set
@@ -295,7 +326,15 @@ for (let i = 0; i < 5; i++) {
         const brick = new Brick(fakeIntersect, rgbaColor, finalDimensions, rotation, 0);
         brick.position.set(position.x, position.y, position.z);
 
-        addObject(brick);
+        // Apply custom ID if provided
+        if (id !== null) {
+          brick.customId = id;
+        }
+
+        // Only add to scene if render is true
+        if (render) {
+          addObject(brick);
+        }
 
         // Return BrickAPI object for OOP style
         return new BrickAPI(brick.customId, api);
@@ -446,6 +485,124 @@ for (let i = 0; i < 5; i++) {
         if (getCameraTarget) return getCameraTarget();
         return { x: 0, y: 0, z: 0 };
       },
+
+      // Helper constants for spacing
+      BRICK_HEIGHT: 24,
+      BRICK_SPACING: 25,
+      STUD_SIZE: 10,
+
+      // Check if a position is occupied by an existing brick
+      // Returns true if occupied, false if free
+      isPositionOccupied: (position, tolerance = 5) => {
+        return bricks.some(brick => {
+          const dx = Math.abs(brick.position.x - position.x);
+          const dy = Math.abs(brick.position.y - position.y);
+          const dz = Math.abs(brick.position.z - position.z);
+          return dx < tolerance && dy < tolerance && dz < tolerance;
+        });
+      },
+
+      // Find all bricks at a specific position
+      findBricksAt: (position, tolerance = 5) => {
+        return bricks
+          .filter(brick => {
+            const dx = Math.abs(brick.position.x - position.x);
+            const dy = Math.abs(brick.position.y - position.y);
+            const dz = Math.abs(brick.position.z - position.z);
+            return dx < tolerance && dy < tolerance && dz < tolerance;
+          })
+          .map(b => new BrickAPI(b.customId, api));
+      },
+
+      // Find bricks by color (supports hex strings or color names)
+      findBricksByColor: (color) => {
+        const targetRGBA = this._colorToRGBA(color);
+        return bricks
+          .filter(brick => {
+            const c = brick._color;
+            return Math.abs(c.r - targetRGBA.r) < 5 &&
+                   Math.abs(c.g - targetRGBA.g) < 5 &&
+                   Math.abs(c.b - targetRGBA.b) < 5;
+          })
+          .map(b => new BrickAPI(b.customId, api));
+      },
+
+      // Find a brick by ID
+      findBrickById: (id) => {
+        const brick = bricks.find(b => b.customId === id);
+        return brick ? new BrickAPI(brick.customId, api) : null;
+      },
+
+      // Snap position to grid
+      snapToGrid: (position, gridSize = 25) => {
+        return {
+          x: Math.round(position.x / gridSize) * gridSize,
+          y: Math.round(position.y / 24) * 24, // Always snap Y to brick height
+          z: Math.round(position.z / gridSize) * gridSize
+        };
+      },
+
+      // Get next free position in a grid pattern
+      // Returns first unoccupied position in a grid starting from startPos
+      getNextFreePosition: (startPos = { x: 0, y: 24, z: 0 }, spacing = 25, maxSearch = 100) => {
+        let spiralIndex = 0;
+
+        while (spiralIndex < maxSearch) {
+          // Spiral pattern: expand outward in a square
+          const layer = Math.floor(Math.sqrt(spiralIndex));
+          const posInLayer = spiralIndex - (layer * layer);
+          const sideLength = 2 * layer + 1;
+
+          let x, z;
+          if (posInLayer < sideLength) {
+            x = layer;
+            z = -layer + posInLayer;
+          } else if (posInLayer < 2 * sideLength - 1) {
+            x = layer - (posInLayer - sideLength + 1);
+            z = layer;
+          } else if (posInLayer < 3 * sideLength - 2) {
+            x = -layer;
+            z = layer - (posInLayer - (2 * sideLength - 1));
+          } else {
+            x = -layer + (posInLayer - (3 * sideLength - 2));
+            z = -layer;
+          }
+
+          const testPos = {
+            x: startPos.x + x * spacing,
+            y: startPos.y,
+            z: startPos.z + z * spacing
+          };
+
+          if (!api.isPositionOccupied(testPos)) {
+            return testPos;
+          }
+
+          spiralIndex++;
+        }
+
+        // If no free position found, return position far away
+        return {
+          x: startPos.x + maxSearch * spacing,
+          y: startPos.y,
+          z: startPos.z
+        };
+      },
+
+      // Count total bricks in scene
+      getBrickCount: () => {
+        return bricks.length;
+      },
+
+      // Delete multiple bricks at once
+      deleteBricks: (brickIds) => {
+        brickIds.forEach(id => api.deleteBrick(id));
+      },
+
+      // Create multiple bricks at once
+      createBricks: (brickOptions) => {
+        return brickOptions.map(options => api.createBrick(options));
+      },
     };
 
     return api;
@@ -467,6 +624,9 @@ for (let i = 0; i < 5; i++) {
       const api = this._createScriptingAPI();
 
       // Create an async function with the API in scope
+      // Wrap user code in async function to allow await usage
+      const wrappedCode = `return (async function() {\n${scriptText}\n})();`;
+
       const scriptFunction = new Function(
         'createBrick',
         'moveBrick',
@@ -490,9 +650,19 @@ for (let i = 0; i < 5; i++) {
         'setCameraView',
         'getCameraPosition',
         'getCameraTarget',
-        `return (async () => {
-          ${scriptText}
-        })();`
+        'BRICK_HEIGHT',
+        'BRICK_SPACING',
+        'STUD_SIZE',
+        'isPositionOccupied',
+        'findBricksAt',
+        'findBricksByColor',
+        'findBrickById',
+        'snapToGrid',
+        'getNextFreePosition',
+        'getBrickCount',
+        'deleteBricks',
+        'createBricks',
+        wrappedCode
       );
 
       // Execute the script with the API
@@ -518,16 +688,42 @@ for (let i = 0; i < 5; i++) {
         api.setCameraTarget,
         api.setCameraView,
         api.getCameraPosition,
-        api.getCameraTarget
+        api.getCameraTarget,
+        api.BRICK_HEIGHT,
+        api.BRICK_SPACING,
+        api.STUD_SIZE,
+        api.isPositionOccupied,
+        api.findBricksAt,
+        api.findBricksByColor,
+        api.findBrickById,
+        api.snapToGrid,
+        api.getNextFreePosition,
+        api.getBrickCount,
+        api.deleteBricks,
+        api.createBricks
       );
 
       this.setState({ running: false, syntaxWarning: null });
       // Reopen the script editor after script completes successfully
       onClose();
     } catch (err) {
+      // Provide helpful error messages
+      let errorMessage = err.message;
+
+      // Handle common errors with better explanations
+      if (errorMessage.includes('await is only valid in async')) {
+        errorMessage = 'Internal error: Script execution wrapper failed. Please try again.';
+      } else if (errorMessage.includes('is not defined')) {
+        // Extract the undefined variable name
+        const match = errorMessage.match(/(\w+) is not defined/);
+        if (match) {
+          errorMessage = `'${match[1]}' is not defined. Check the API reference for available functions.`;
+        }
+      }
+
       this.setState({
         running: false,
-        error: err.message
+        error: errorMessage
       });
       // Reopen the script editor even if there was an error
       onClose();
@@ -542,6 +738,22 @@ for (let i = 0; i < 5; i++) {
 
   _toggleCheatsheet = () => {
     this.setState({ cheatsheetOpen: !this.state.cheatsheetOpen });
+  }
+
+  _toggleAIHelper = () => {
+    this.setState({ aiHelperOpen: !this.state.aiHelperOpen });
+  }
+
+  _handleAIGenerate = (generatedScript) => {
+    const syntaxWarning = generatedScript.trim() ? this._validateJavaScriptSyntax(generatedScript) : null;
+    this.props.onScriptChange(generatedScript, true);
+    this.setState({ error: null, syntaxWarning });
+  }
+
+  _handleAIEdit = (editedScript) => {
+    const syntaxWarning = editedScript.trim() ? this._validateJavaScriptSyntax(editedScript) : null;
+    this.props.onScriptChange(editedScript, true);
+    this.setState({ error: null, syntaxWarning });
   }
 
   _handleExportScript = () => {
@@ -755,7 +967,7 @@ for (let i = 0; i < 10; i++) {
 
   render() {
     const { error, running, cheatsheetOpen, syntaxWarning } = this.state;
-    const { onClose, scriptText } = this.props;
+    const { onClose, scriptText, captureScreenshot } = this.props;
 
     return (
       <div className={styles.container}>
@@ -815,6 +1027,11 @@ for (let i = 0; i < 10; i++) {
             onClick={this._toggleCheatsheet}>
             <i className="ion-help-circled" /> API Reference
           </button>
+          <button
+            className={styles.button}
+            onClick={this._toggleAIHelper}>
+            <i className="ion-wand" /> AI Helper
+          </button>
         </div>
 
         <textarea
@@ -826,6 +1043,18 @@ for (let i = 0; i < 10; i++) {
         />
 
         {cheatsheetOpen && this._renderCheatsheet()}
+
+        <AIHelper
+          isOpen={this.state.aiHelperOpen}
+          onClose={this._toggleAIHelper}
+          title="AI Script Assistant"
+          apiEndpoint="/api/chat/script"
+          contentKey="currentScript"
+          currentContent={scriptText}
+          onGenerate={this._handleAIGenerate}
+          onEdit={this._handleAIEdit}
+          captureScreenshot={captureScreenshot}
+        />
       </div>
     );
   }

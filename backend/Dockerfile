@@ -6,13 +6,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --legacy-peer-deps
+RUN npm install
 
 # Copy source code
 COPY . .
 
-# Expose consolidated server port
-EXPOSE 9000
+# Expose port
+EXPOSE 3001
 
-# Run consolidated server
+# Start server
 CMD ["npm", "start"]

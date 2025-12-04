@@ -26,6 +26,7 @@ import JSONEditor from 'components/JSONEditor';
 import ScriptEditor from 'components/ScriptEditor';
 import InstructionsModal from 'components/InstructionsModal';
 import Tutorial from 'components/Tutorial';
+import BuildManager from 'components/BuildManager';
 
 import styles from 'styles/containers/builder';
 
@@ -35,13 +36,19 @@ class Builder extends React.Component {
     jsonEditorOpen: false,
     scriptEditorOpen: false,
     instructionsOpen: false,
+    buildManagerOpen: false,
     scriptText: '',
     scriptUserModified: false,
   }
 
   componentDidMount() {
     this.tutorial = new Tutorial();
+    // Don't auto-load on mount - user can manually load [Autosave] from Builds
+    // The autosave will still save automatically as you work
   }
+
+  // Autosave temporarily disabled - was causing scene loading issues
+  // TODO: Re-implement autosave with proper scene state management
 
   // Camera control methods for scripting API
   _setTopView = () => {
@@ -119,6 +126,13 @@ class Builder extends React.Component {
     return { x: 0, y: 0, z: 0 };
   }
 
+  _captureScreenshot = () => {
+    if (this.sceneRef) {
+      return this.sceneRef._captureScreenshot();
+    }
+    return null;
+  }
+
   _toggleJSONEditor = () => {
     this.setState({ jsonEditorOpen: !this.state.jsonEditorOpen });
   }
@@ -131,8 +145,36 @@ class Builder extends React.Component {
     this.setState({ instructionsOpen: !this.state.instructionsOpen });
   }
 
+  _toggleBuildManager = () => {
+    this.setState({ buildManagerOpen: !this.state.buildManagerOpen });
+  }
+
   _handleScriptChange = (scriptText, userModified) => {
     this.setState({ scriptText, scriptUserModified: userModified });
+  }
+
+  _handleLoadBuild = (build) => {
+    // Load the script
+    if (build.script) {
+      this.setState({ scriptText: build.script, scriptUserModified: true });
+    }
+
+    // Load the JSON (parse and set scene)
+    if (build.json) {
+      try {
+        const objects = JSON.parse(build.json);
+        this.props.setScene(objects);
+      } catch (err) {
+        console.error('Failed to load JSON:', err);
+      }
+    }
+
+    // Close the build manager
+    this.setState({ buildManagerOpen: false });
+  }
+
+  _handleSaveBuildSuccess = (buildName) => {
+    console.log(`Build "${buildName}" saved successfully`);
   }
 
   _handleReset = () => {
@@ -164,7 +206,7 @@ class Builder extends React.Component {
       resetScene,
       setScene
     } = this.props;
-    const { jsonEditorOpen, scriptEditorOpen, instructionsOpen } = this.state;
+    const { jsonEditorOpen, scriptEditorOpen, instructionsOpen, buildManagerOpen } = this.state;
 
     return (
       <div className={styles.builder}>
@@ -184,6 +226,8 @@ class Builder extends React.Component {
           scriptEditorOpen={scriptEditorOpen}
           onClickToggleInstructions={this._toggleInstructions}
           onClickStartTutorial={this._handleStartTutorial}
+          onClickToggleBuildManager={this._toggleBuildManager}
+          buildManagerOpen={buildManagerOpen}
         />
         <Scene
           ref={(ref) => { this.sceneRef = ref; }}
@@ -201,6 +245,7 @@ class Builder extends React.Component {
             objects={bricks}
             loadObjectsFromJSON={setScene}
             onClose={this._toggleJSONEditor}
+            captureScreenshot={this._captureScreenshot}
           />
         )}
         {scriptEditorOpen && (
@@ -226,11 +271,22 @@ class Builder extends React.Component {
             scriptText={this.state.scriptText}
             scriptUserModified={this.state.scriptUserModified}
             onScriptChange={this._handleScriptChange}
+            captureScreenshot={this._captureScreenshot}
           />
         )}
         {instructionsOpen && (
           <InstructionsModal
             onClose={this._toggleInstructions}
+          />
+        )}
+        {buildManagerOpen && (
+          <BuildManager
+            mode="popup"
+            scriptText={this.state.scriptText}
+            jsonText={JSON.stringify(bricks, null, 2)}
+            onLoadBuild={this._handleLoadBuild}
+            onSaveSuccess={this._handleSaveBuildSuccess}
+            onClose={this._toggleBuildManager}
           />
         )}
       </div>
