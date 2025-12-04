@@ -34,6 +34,18 @@
 }
 
 
+:local(.disabled) {
+  composes: button;
+  opacity: 0.3;
+  cursor: not-allowed;
+
+  &:hover {
+    color: @button-color-default;
+    cursor: not-allowed;
+  }
+}
+
+
 :local(.icon) {
   font-family: 'ionicons';
   font-size: 1.5em;

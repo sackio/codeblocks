@@ -140,7 +140,79 @@ class Scene extends React.Component {
   _setObjectsFromState() {
     const { objects } = this.props;
     const { coreObjects } = this.state;
-    this.scene.children = [ ...objects, ...coreObjects ];
+
+    // Convert serialized brick data to Brick instances if needed
+    const brickObjects = objects.map((obj, index) => {
+      // Check if it's already a Brick instance
+      if (obj instanceof THREE.Mesh && obj.customId) {
+        return obj;
+      }
+
+      // Otherwise, it's serialized data - reconstruct the Brick
+      return this._reconstructBrick(obj);
+    }).filter(Boolean); // Filter out any nulls from failed reconstructions
+
+    this.scene.children = [ ...brickObjects, ...coreObjects ];
+  }
+
+  // Helper method to get actual Brick instances from the scene
+  // (excludes coreObjects like lights, plane, grid, etc.)
+  _getBrickInstancesFromScene() {
+    return this.scene.children.filter(obj => obj instanceof Brick);
+  }
+
+  _reconstructBrick(data) {
+    try {
+      // Validate required fields
+      if (!data || !data.position || !data.color || !data.dimensions) {
+        console.warn('Invalid brick data, skipping:', data);
+        return null;
+      }
+
+      // Reconstruct the intersect object needed by Brick constructor
+      const intersect = {
+        point: new THREE.Vector3(
+          data.intersect?.point?.x || data.position.x,
+          data.intersect?.point?.y || data.position.y,
+          data.intersect?.point?.z || data.position.z
+        ),
+        face: data.intersect?.face ? {
+          normal: new THREE.Vector3(
+            data.intersect.face.normal.x,
+            data.intersect.face.normal.y,
+            data.intersect.face.normal.z
+          )
+        } : {
+          normal: new THREE.Vector3(0, 1, 0) // Default upward normal
+        }
+      };
+
+      // Create the brick with stored parameters
+      const brick = new Brick(
+        intersect,
+        data.color,
+        data.dimensions,
+        data.rotation?.y || 0,
+        data.translation || 0
+      );
+
+      // Restore the exact position
+      brick.position.set(
+        data.position.x,
+        data.position.y,
+        data.position.z
+      );
+
+      // Restore the customId if it exists
+      if (data.customId) {
+        brick.customId = data.customId;
+      }
+
+      return brick;
+    } catch (err) {
+      console.error('Failed to reconstruct brick:', err, data);
+      return null;
+    }
   }
 
   _setEventListeners() {
@@ -167,7 +239,14 @@ class Scene extends React.Component {
     const { isDDown, isRDown, isDraggingBrick, selectedBrick } = this.state;
     const { mode, dimensions, objects, updateObject } = this.props;
     event.preventDefault();
-    const drag = true;
+
+    // Only set drag=true if mouse moved more than 5 pixels from initial position
+    // This prevents accidental drags from small hand movements during clicks
+    const DRAG_THRESHOLD = 5;
+    const dx = event.clientX - (this.mouseDownX || 0);
+    const dy = event.clientY - (this.mouseDownY || 0);
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const drag = distance > DRAG_THRESHOLD;
     this.setState({ drag });
     const { width, height } = getMeasurementsFromDimensions(dimensions);
     const evenWidth = dimensions.x % 2 === 0;
@@ -198,16 +277,19 @@ class Scene extends React.Component {
       return;
     }
 
-    const intersects = scene.raycaster.intersectObjects( [ ...objects, this.plane ], true );
+    // Use actual brick instances from the scene instead of props.objects
+    const bricks = this._getBrickInstancesFromScene();
+    const intersects = scene.raycaster.intersectObjects( [ ...bricks, this.plane ], true );
     if ( intersects.length > 0) {
       const intersect = intersects[ 0 ];
-      if (! isDDown) {
+      // Show rollover brick only in build mode (not in edit, paint, or delete modes)
+      if (! isDDown && mode === 'build') {
         scene.rollOverBrick.position.copy( intersect.point ).add( intersect.face.normal );
         scene.rollOverBrick.position.divide( new THREE.Vector3( base, height, base) ).floor()
           .multiply( new THREE.Vector3( base, height, base ) )
           .add( new THREE.Vector3( evenWidth ? base : base / 2, height / 2, evenDepth ? base : base / 2 ) );
       }
-      if (intersect.object instanceof Brick && (isDDown || isRDown || mode === 'paint')) {
+      if (intersect.object instanceof Brick && (isDDown || isRDown || mode === 'paint' || mode === 'edit')) {
         this.setState({ brickHover: true });
       }
       else {
@@ -224,11 +306,17 @@ class Scene extends React.Component {
       drag: false,
     });
 
+    // Store mouse down position for drag threshold detection
+    this.mouseDownX = event.clientX;
+    this.mouseDownY = event.clientY;
+
     // Check if clicking on the selected brick to start dragging
     if (selectedBrick && event.target.localName === 'canvas') {
       this.mouse.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
       this.raycaster.setFromCamera( this.mouse, this.camera );
-      const intersects = this.raycaster.intersectObjects( objects );
+      // Use actual brick instances from the scene instead of props.objects
+      const bricks = this._getBrickInstancesFromScene();
+      const intersects = this.raycaster.intersectObjects( bricks );
 
       if (intersects.length > 0 && intersects[0].object === selectedBrick) {
         this.setState({ isDraggingBrick: true });
@@ -246,7 +334,9 @@ class Scene extends React.Component {
     if (! drag) {
       scene.mouse.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
       scene.raycaster.setFromCamera( scene.mouse, scene.camera );
-      const intersects = scene.raycaster.intersectObjects( [ ...objects, this.plane ] );
+      // Use actual brick instances from the scene instead of props.objects
+      const bricks = this._getBrickInstancesFromScene();
+      const intersects = scene.raycaster.intersectObjects( [ ...bricks, this.plane ] );
       if ( intersects.length > 0 ) {
         const intersect = intersects[ 0 ];
         if (mode === 'build') {
@@ -280,6 +370,20 @@ class Scene extends React.Component {
             this.setState({ lastClickTime: 0, lastClickTarget: null });
           }
         }
+        else if (mode === 'edit') {
+          // Edit mode: single-click to select/deselect bricks (no double-click, no complex interactions)
+          if (!drag && intersect.object !== this.plane && intersect.object instanceof Brick) {
+            // Single click: select or deselect
+            if (this.state.selectedBrick === intersect.object) {
+              this._deselectBrick();
+            } else {
+              this._selectBrick(intersect.object);
+            }
+          } else if (intersect.object === this.plane) {
+            // Clicking on plane deselects
+            this._deselectBrick();
+          }
+        }
         else if (mode === 'paint') {
           this._paintCube(intersect);
         }
@@ -295,7 +399,8 @@ class Scene extends React.Component {
     const { brickColor, dimensions, objects, addObject } = this.props;
     let canCreate = true;
     const { width, depth } = getMeasurementsFromDimensions(dimensions);
-    const bricks = objects;
+    // Use actual brick instances from the scene instead of props.objects
+    const bricks = this._getBrickInstancesFromScene();
     const meshBoundingBox = new THREE.Box3().setFromObject(this.rollOverBrick);
     for (var i = 0; i < bricks.length; i++) {
       const brickBoundingBox = new THREE.Box3().setFromObject(bricks[i]);
@@ -330,6 +435,67 @@ class Scene extends React.Component {
     if (intersect.object !== this.plane) {
       intersect.object.updateColor(brickColor);
       updateObject(intersect.object);
+    }
+  }
+
+  // Touch event handlers for mobile support
+  _onTouchStart(event, scene) {
+    if (event.touches.length === 1) {
+      event.preventDefault();
+      const touch = event.touches[0];
+
+      // Store touch start position for drag threshold detection
+      this.mouseDownX = touch.clientX;
+      this.mouseDownY = touch.clientY;
+
+      this.setState({ drag: false });
+
+      // Convert touch to mouse event for brick selection logic
+      const fakeEvent = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        target: { localName: 'canvas' }
+      };
+      this._onMouseDown(fakeEvent);
+    }
+  }
+
+  _onTouchMove(event, scene) {
+    if (event.touches.length === 1) {
+      event.preventDefault();
+      const touch = event.touches[0];
+
+      // Same drag threshold logic as mouse
+      const DRAG_THRESHOLD = 5;
+      const dx = touch.clientX - (this.mouseDownX || 0);
+      const dy = touch.clientY - (this.mouseDownY || 0);
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const drag = distance > DRAG_THRESHOLD;
+      this.setState({ drag });
+
+      // Convert touch to mouse event
+      const fakeEvent = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        preventDefault: () => {},
+        target: { localName: 'canvas' }
+      };
+      this._onMouseMove(fakeEvent, scene);
+    }
+  }
+
+  _onTouchEnd(event, scene) {
+    if (event.changedTouches.length === 1) {
+      event.preventDefault();
+      const touch = event.changedTouches[0];
+
+      // Convert touch to mouse event
+      const fakeEvent = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        target: { localName: 'canvas' }
+      };
+      this._onMouseUp(fakeEvent, scene);
     }
   }
 
@@ -398,7 +564,24 @@ class Scene extends React.Component {
 
   _onKeyDown(event, scene) {
     const { selectedBrick } = scene.state;
+    const { mode, undo, redo } = scene.props;
     const moveAmount = base; // 25 pixels per arrow key press
+
+    // Handle Ctrl+Z (undo) and Ctrl+Y (redo) keyboard shortcuts
+    if ((event.ctrlKey || event.metaKey) && event.keyCode === 90) { // Ctrl+Z or Cmd+Z
+      event.preventDefault();
+      if (undo) {
+        undo();
+      }
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.keyCode === 89) { // Ctrl+Y or Cmd+Y
+      event.preventDefault();
+      if (redo) {
+        redo();
+      }
+      return;
+    }
 
     switch(event.keyCode) {
       case 16: // Shift
@@ -406,21 +589,27 @@ class Scene extends React.Component {
           isShiftDown: true,
         });
         break;
-      case 68: // D key - delete mode
-        scene.setState({
-          isDDown: true,
-        });
-        scene.rollOverBrick.visible = false;
+      case 68: // D key - delete mode (only in build mode, not in edit mode)
+        if (mode === 'build') {
+          scene.setState({
+            isDDown: true,
+          });
+          scene.rollOverBrick.visible = false;
+        }
         break;
-      case 82: // R key - rotate
-        scene.rollOverBrick.rotate( Math.PI / 2 );
-        scene.setState({
-          isRDown: true,
-          rotation: scene.rollOverBrick.rotation.y,
-        });
+      case 82: // R key - rotate (only in build mode, not in edit mode)
+        if (mode === 'build') {
+          scene.rollOverBrick.rotate( Math.PI / 2 );
+          scene.setState({
+            isRDown: true,
+            rotation: scene.rollOverBrick.rotation.y,
+          });
+        }
         break;
       case 46: // Delete key - delete selected brick
+      case 8: // Backspace key - delete selected brick
         scene._deleteSelectedBrick();
+        event.preventDefault(); // Prevent browser back navigation on Backspace
         break;
       case 27: // Escape key - deselect brick
         scene._deselectBrick();

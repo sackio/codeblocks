@@ -53,3 +53,21 @@ export function setScene(bricks) {
     },
   };
 }
+
+
+export const UNDO = 'UNDO';
+
+export function undo() {
+  return {
+    type: UNDO,
+  };
+}
+
+
+export const REDO = 'REDO';
+
+export function redo() {
+  return {
+    type: REDO,
+  };
+}

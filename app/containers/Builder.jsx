@@ -8,6 +8,8 @@ import {
   getIsGridVisible,
   getBrickDimensions,
   getBricks,
+  getCanUndo,
+  getCanRedo,
 } from 'selectors';
 import {
   setMode,
@@ -19,6 +21,8 @@ import {
   updateBrick,
   resetScene,
   setScene,
+  undo,
+  redo,
 } from 'actions';
 import Scene from 'components/engine/Scene';
 import Topbar from 'components/Topbar';
@@ -43,12 +47,160 @@ class Builder extends React.Component {
 
   componentDidMount() {
     this.tutorial = new Tutorial();
-    // Don't auto-load on mount - user can manually load [Autosave] from Builds
-    // The autosave will still save automatically as you work
+
+    // Autosave disabled - causing issues
+    // this.sceneInitTimer = setTimeout(() => {
+    //   this._loadAutosave();
+    // }, 1000);
   }
 
-  // Autosave temporarily disabled - was causing scene loading issues
-  // TODO: Re-implement autosave with proper scene state management
+  componentWillUnmount() {
+    // Clear timers
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
+    }
+    if (this.sceneInitTimer) {
+      clearTimeout(this.sceneInitTimer);
+    }
+  }
+
+  // Autosave disabled - causing issues
+  // componentDidUpdate(prevProps, prevState) {
+  //   // Autosave when bricks or script changes
+  //   const bricksChanged = prevProps.bricks !== this.props.bricks;
+  //   const scriptChanged = prevState.scriptText !== this.state.scriptText;
+
+  //   if (bricksChanged || scriptChanged) {
+  //     this._scheduleAutosave();
+  //   }
+  // }
+
+  _scheduleAutosave = () => {
+    // Debounce autosave - only save after 2 seconds of no changes
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
+    }
+    this.autosaveTimer = setTimeout(() => {
+      this._autosave();
+    }, 2000);
+  }
+
+  _serializeBricks = (bricks) => {
+    // Extract only the serializable data from Brick objects
+    if (!Array.isArray(bricks)) {
+      return [];
+    }
+
+    return bricks.map((brick) => {
+      // Handle both Brick instances (with private properties) and plain objects (from loaded autosave)
+      // For Brick instances, private properties start with underscore: _color, _dimensions, etc.
+      // For plain objects from autosave, use the public properties: color, dimensions, etc.
+      const color = brick._color || brick.color;
+      const dimensions = brick._dimensions || brick.dimensions;
+      const translation = brick._translation !== undefined ? brick._translation : brick.translation;
+      const intersect = brick._intersect || brick.intersect;
+
+      return {
+        customId: brick.customId,
+        position: {
+          x: brick.position.x,
+          y: brick.position.y,
+          z: brick.position.z
+        },
+        rotation: {
+          y: brick.rotation.y
+        },
+        color: color,
+        dimensions: dimensions,
+        translation: translation,
+        // Store intersect data for recreation
+        intersect: intersect ? {
+          point: {
+            x: intersect.point.x,
+            y: intersect.point.y,
+            z: intersect.point.z
+          },
+          face: intersect.face ? {
+            normal: {
+              x: intersect.face.normal.x,
+              y: intersect.face.normal.y,
+              z: intersect.face.normal.z
+            }
+          } : null
+        } : null
+      };
+    });
+  }
+
+  _autosave = () => {
+    try {
+      const { bricks } = this.props;
+
+      // Serialize bricks to plain objects
+      const serializedBricks = this._serializeBricks(bricks);
+
+      const autosaveData = {
+        version: 1, // For future compatibility
+        script: this.state.scriptText || '',
+        bricks: serializedBricks,
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem('codeblocks_autosave', JSON.stringify(autosaveData));
+    } catch (err) {
+      console.error('Autosave failed:', err);
+      // Clear corrupted autosave
+      try {
+        localStorage.removeItem('codeblocks_autosave');
+      } catch (e) {
+        // Ignore - localStorage might be full or disabled
+      }
+    }
+  }
+
+  _loadAutosave = () => {
+    try {
+      const autosaveData = localStorage.getItem('codeblocks_autosave');
+      if (!autosaveData) {
+        return;
+      }
+
+      const parsed = JSON.parse(autosaveData);
+
+      if (!parsed || !parsed.bricks) {
+        throw new Error('Invalid autosave format');
+      }
+
+      // Validate data structure
+      if (!Array.isArray(parsed.bricks)) {
+        throw new Error('Invalid bricks data');
+      }
+
+      // Load script
+      if (parsed.script && parsed.script.trim()) {
+        this.setState({
+          scriptText: parsed.script,
+          scriptUserModified: true
+        });
+      }
+
+      // Load bricks
+      if (parsed.bricks.length > 0) {
+        // Use setScene to load the brick data
+        // The Scene component and redux will handle creating the actual Brick objects
+        this.props.setScene(parsed.bricks);
+      }
+    } catch (err) {
+      console.error('Failed to load autosave:', err);
+
+      // Clear corrupted autosave
+      try {
+        localStorage.removeItem('codeblocks_autosave');
+      } catch (e) {
+        // Ignore
+      }
+    }
+  }
 
   // Camera control methods for scripting API
   _setTopView = () => {
@@ -163,9 +315,35 @@ class Builder extends React.Component {
     if (build.json) {
       try {
         const objects = JSON.parse(build.json);
-        this.props.setScene(objects);
+
+        // Validate that objects is an array and has valid structure
+        if (!Array.isArray(objects)) {
+          throw new Error('Invalid build data: expected array of objects');
+        }
+
+        // Check if objects have the required fields for brick reconstruction
+        const hasValidBricks = objects.every(obj =>
+          obj && obj.position && obj.color && obj.dimensions
+        );
+
+        if (!hasValidBricks) {
+          // Show warning to user about corrupted build
+          if (window.confirm(
+            `Warning: This build contains corrupted data from an older version.\n\n` +
+            `The build may not load correctly. Would you like to try loading it anyway?\n\n` +
+            `(Corrupted bricks will be skipped)`
+          )) {
+            this.props.setScene(objects);
+          } else {
+            return; // User cancelled, don't load
+          }
+        } else {
+          this.props.setScene(objects);
+        }
       } catch (err) {
-        console.error('Failed to load JSON:', err);
+        console.error('Failed to load build:', err);
+        alert(`Failed to load build: ${err.message}\n\nThis build may be corrupted. Please try saving a new version of your work.`);
+        return; // Don't close the build manager if loading failed
       }
     }
 
@@ -204,7 +382,11 @@ class Builder extends React.Component {
       bricks,
       updateBrick,
       resetScene,
-      setScene
+      setScene,
+      undo,
+      redo,
+      canUndo,
+      canRedo
     } = this.props;
     const { jsonEditorOpen, scriptEditorOpen, instructionsOpen, buildManagerOpen } = this.state;
 
@@ -228,6 +410,10 @@ class Builder extends React.Component {
           onClickStartTutorial={this._handleStartTutorial}
           onClickToggleBuildManager={this._toggleBuildManager}
           buildManagerOpen={buildManagerOpen}
+          onClickUndo={undo}
+          onClickRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
         />
         <Scene
           ref={(ref) => { this.sceneRef = ref; }}
@@ -239,7 +425,9 @@ class Builder extends React.Component {
           // shifted={utilsOpen}
           removeObject={removeBrick}
           addObject={addBrick}
-          updateObject={updateBrick} />
+          updateObject={updateBrick}
+          undo={undo}
+          redo={redo} />
         {jsonEditorOpen && (
           <JSONEditor
             objects={bricks}
@@ -283,7 +471,7 @@ class Builder extends React.Component {
           <BuildManager
             mode="popup"
             scriptText={this.state.scriptText}
-            jsonText={JSON.stringify(bricks, null, 2)}
+            jsonText={JSON.stringify(this._serializeBricks(bricks), null, 2)}
             onLoadBuild={this._handleLoadBuild}
             onSaveSuccess={this._handleSaveBuildSuccess}
             onClose={this._toggleBuildManager}
@@ -301,6 +489,8 @@ const mapStateToProps = (state) => ({
   gridVisible: getIsGridVisible(state),
   dimensions: getBrickDimensions(state),
   bricks: getBricks(state),
+  canUndo: getCanUndo(state),
+  canRedo: getCanRedo(state),
 });
 
 
@@ -314,6 +504,8 @@ const mapDispatchToProps = {
   updateBrick,
   resetScene,
   setScene,
+  undo,
+  redo,
 };
 
 

@@ -42,7 +42,11 @@ class Topbar extends React.Component {
       onClickToggleInstructions,
       onClickStartTutorial,
       onClickToggleBuildManager,
-      buildManagerOpen
+      buildManagerOpen,
+      onClickUndo,
+      onClickRedo,
+      canUndo,
+      canRedo
     } = this.props;
 
     const { mobileMenuOpen } = this.state;
@@ -70,6 +74,11 @@ class Topbar extends React.Component {
               icon="hammer"
               text="Build" />
             <Button
+              active={mode === 'edit'}
+              onClick={() => { onClickSetMode('edit'); this._closeMobileMenu(); }}
+              icon="edit"
+              text="Edit" />
+            <Button
               active={mode === 'paint'}
               onClick={() => { onClickSetMode('paint'); this._closeMobileMenu(); }}
               icon="paintbrush"
@@ -82,6 +91,16 @@ class Topbar extends React.Component {
             <BrickPicker selectedSize={brickSize} handleSetBrick={onClickSetBrick} color={color} />
           </div>
           <div className={styles.rightSection}>
+            <Button
+              onClick={() => { onClickUndo(); this._closeMobileMenu(); }}
+              icon="arrow-return-left"
+              text="Undo"
+              disabled={!canUndo} />
+            <Button
+              onClick={() => { onClickRedo(); this._closeMobileMenu(); }}
+              icon="arrow-return-right"
+              text="Redo"
+              disabled={!canRedo} />
             <Button
               onClick={() => { onClickStartTutorial(); this._closeMobileMenu(); }}
               icon="information-circled"

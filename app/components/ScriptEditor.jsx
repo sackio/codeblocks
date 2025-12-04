@@ -22,6 +22,21 @@ class ScriptEditor extends React.Component {
     if (!this.props.scriptText) {
       this._generateScriptFromBricks();
     }
+
+    // Add global unhandled promise rejection handler to catch animation errors
+    this._handleUnhandledRejection = (event) => {
+      console.error('Unhandled promise rejection in script:', event.reason);
+      // Prevent browser from freezing on unhandled rejections
+      event.preventDefault();
+    };
+    window.addEventListener('unhandledrejection', this._handleUnhandledRejection);
+  }
+
+  componentWillUnmount() {
+    // Remove global error handler
+    if (this._handleUnhandledRejection) {
+      window.removeEventListener('unhandledrejection', this._handleUnhandledRejection);
+    }
   }
 
   componentDidUpdate(prevProps) {
@@ -225,19 +240,46 @@ for (let i = 0; i < 5; i++) {
         this.id = brickId;
         this._api = apiMethods;
         this._chain = Promise.resolve();
+        this._silent = true; // Always operate in silent mode by default to prevent excessive Redux updates
+        this._needsSync = false; // Track if we need to sync Redux at the end
+      }
+
+      // Enable silent mode - updates Three.js meshes without Redux updates
+      // This is now the default behavior, but kept for backwards compatibility
+      silent() {
+        this._silent = true;
+        return this;
+      }
+
+      // Sync Redux state after silent operations
+      sync() {
+        this._chain = this._chain.then(() => {
+          const brick = bricks.find(b => b.customId === this.id);
+          if (brick) {
+            updateObject(brick);
+            this._needsSync = false;
+          }
+        });
+        return this;
       }
 
       // Chainable methods - they add to the promise chain and return this
       color(newColor) {
         this._chain = this._chain.then(() => {
-          this._api.setBrickColor(this.id, newColor);
+          this._api.setBrickColor(this.id, newColor, this._silent);
+          if (this._silent) {
+            this._needsSync = true;
+          }
         });
         return this;
       }
 
       move(position) {
         this._chain = this._chain.then(() => {
-          this._api.moveBrick(this.id, position);
+          this._api.moveBrick(this.id, position, this._silent);
+          if (this._silent) {
+            this._needsSync = true;
+          }
         });
         return this;
       }
@@ -251,7 +293,10 @@ for (let i = 0; i < 5; i++) {
               y: brick.position.y + (delta.y || 0),
               z: brick.position.z + (delta.z || 0)
             };
-            this._api.moveBrick(this.id, newPos);
+            this._api.moveBrick(this.id, newPos, this._silent);
+            if (this._silent) {
+              this._needsSync = true;
+            }
           }
         });
         return this;
@@ -262,7 +307,11 @@ for (let i = 0; i < 5; i++) {
           const brick = bricks.find(b => b.customId === this.id);
           if (brick) {
             brick.rotation.y = angle;
-            updateObject(brick);
+            if (!this._silent) {
+              updateObject(brick);
+            } else {
+              this._needsSync = true;
+            }
           }
         });
         return this;
@@ -293,7 +342,29 @@ for (let i = 0; i < 5; i++) {
 
       // Make the object awaitable - this executes the chain
       then(resolve, reject) {
-        return this._chain.then(() => this).then(resolve, reject);
+        return this._chain
+          .then(() => {
+            // Auto-sync Redux state if any operations were performed in silent mode
+            if (this._needsSync) {
+              const brick = bricks.find(b => b.customId === this.id);
+              if (brick) {
+                updateObject(brick);
+                this._needsSync = false;
+              }
+            }
+            return this;
+          })
+          .then(resolve, reject)
+          .catch((err) => {
+            // Log error to console to help debug animation issues
+            console.error('BrickAPI chain error:', err);
+            // Re-throw so it can be caught by user code if they use try-catch
+            if (reject) {
+              reject(err);
+            } else {
+              throw err;
+            }
+          });
       }
     }
 
@@ -341,11 +412,13 @@ for (let i = 0; i < 5; i++) {
       },
 
       // Move a brick to a new position
-      moveBrick: (id, position) => {
+      moveBrick: (id, position, silent = false) => {
         const brick = bricks.find(b => b.customId === id);
         if (brick) {
           brick.position.set(position.x, position.y, position.z);
-          updateObject(brick);
+          if (!silent) {
+            updateObject(brick);
+          }
         }
       },
 
@@ -355,12 +428,14 @@ for (let i = 0; i < 5; i++) {
       },
 
       // Set brick color
-      setBrickColor: (id, color) => {
+      setBrickColor: (id, color, silent = false) => {
         const brick = bricks.find(b => b.customId === id);
         if (brick) {
           const rgbaColor = this._colorToRGBA(color);
           brick.updateColor(rgbaColor);
-          updateObject(brick);
+          if (!silent) {
+            updateObject(brick);
+          }
         }
       },
 

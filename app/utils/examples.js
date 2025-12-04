@@ -349,28 +349,41 @@ const grid = await createGrid(5, 5, {
 
 await wait(500);
 
-// Wave animation using OOP!
+// Wave animation - animations now auto-batch updates!
+const animations = [];
+
 for (let i = 0; i < grid.length; i++) {
   const row = Math.floor(i / 5);
   const col = i % 5;
-  const delay = (row + col) * 100;
+  const initialDelay = (row + col) * 100;
 
-  // Each brick animates independently
-  setTimeout(async () => {
-    await grid[i]
-      .color('#ff6b35')
-      .wait(200)
-      .moveBy({ y: 12 })
-      .wait(200)
-      .color('#00aaff')
-      .wait(200)
-      .moveBy({ y: -12 })
-      .wait(200)
-      .color('#888888');
-  }, delay);
+  // Create a promise for each animation
+  const animationPromise = (async () => {
+    try {
+      // Wait for the initial wave delay
+      await wait(initialDelay);
+
+      // Execute the animation - Redux syncs automatically at the end!
+      await grid[i]
+        .color('#ff6b35')
+        .wait(200)
+        .moveBy({ y: 12 })
+        .wait(200)
+        .color('#00aaff')
+        .wait(200)
+        .moveBy({ y: -12 })
+        .wait(200)
+        .color('#888888');
+    } catch (err) {
+      console.error('Animation error for brick', i, ':', err);
+    }
+  })();
+
+  animations.push(animationPromise);
 }
 
-await wait(3000);`
+// Wait for all animations to complete
+await Promise.all(animations);`
   },
 
   'oop-color-cycle': {
