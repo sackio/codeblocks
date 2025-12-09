@@ -34,13 +34,23 @@ export default class Brick extends THREE.Mesh {
     // Calculate position based on intersect
     this.position.copy( intersect.point ).add( intersect.face.normal );
 
+    // Check if this is a scripted brick (no intersect.object means createBrick() API call)
+    const isScriptedBrick = !intersect.object;
+
     // Check if we're placing on top of another brick (face normal pointing up)
     const isPlacingOnTop = intersect.face &&
                            intersect.face.normal.y > 0.9 &&
                            intersect.object &&
                            intersect.object.type === 'Mesh';
 
-    if (isPlacingOnTop) {
+    if (isScriptedBrick) {
+      // Scripted bricks: use exact positions without grid snapping
+      // Scripts specify the exact center position for brick placement
+      // Just add height/2 to get brick bottom at specified Y
+      this.position.x = intersect.point.x;
+      this.position.y = intersect.point.y + height / 2;
+      this.position.z = intersect.point.z;
+    } else if (isPlacingOnTop) {
       // Placing on brick: snap to exact top surface of the brick below
       // Get the intersect object's bounding box to find its exact top
       const bbox = new THREE.Box3().setFromObject(intersect.object);
