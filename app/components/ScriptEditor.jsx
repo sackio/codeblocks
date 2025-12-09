@@ -376,7 +376,7 @@ for (let i = 0; i < 5; i++) {
         const {
           type = 'rectangle',
           color = '#ff6b35',
-          position = { x: 0, y: 12, z: 0 },
+          position = { x: 0, y: null, z: 0 }, // Default Y is null - will be calculated
           rotation = 0,
           dimensions = { x: 2, z: 2 },
           id = null, // Optional custom ID
@@ -389,18 +389,14 @@ for (let i = 0; i < 5; i++) {
         // Convert color to RGBA format (supports hex, named colors, etc.)
         const rgbaColor = this._colorToRGBA(color);
 
-        // Ensure brick is not placed below the grid (minimum Y is 12)
-        const minY = 12;
-        const clampedY = Math.max(position.y, minY);
-
         // Create fake intersect for Brick constructor
+        // The Brick constructor will handle correct positioning based on brick type
         const fakeIntersect = {
-          point: new THREE.Vector3(position.x, clampedY, position.z),
+          point: new THREE.Vector3(position.x, position.y || 0, position.z),
           face: { normal: new THREE.Vector3(0, 1, 0) }
         };
 
         const brick = new Brick(fakeIntersect, rgbaColor, finalDimensions, rotation, 0);
-        brick.position.set(position.x, clampedY, position.z);
 
         // Apply custom ID if provided
         if (id !== null) {
@@ -420,8 +416,8 @@ for (let i = 0; i < 5; i++) {
       moveBrick: (id, position, silent = false) => {
         const brick = bricks.find(b => b.customId === id);
         if (brick) {
-          // Ensure brick is not moved below the grid (minimum Y is 12)
-          const minY = 12;
+          // Use the brick's stored height (already adjusted for type in constructor)
+          const minY = brick.height / 2;
           const clampedY = Math.max(position.y, minY);
           brick.position.set(position.x, clampedY, position.z);
           if (!silent) {
@@ -495,7 +491,7 @@ for (let i = 0; i < 5; i++) {
             const id = api.createBrick({
               color,
               type,
-              position: { x: x * spacing, y: 12, z: z * spacing },
+              position: { x: x * spacing, y: null, z: z * spacing }, // Let createBrick calculate correct Y
               dimensions: { x: 2, z: 2, type }
             });
             ids.push(id);

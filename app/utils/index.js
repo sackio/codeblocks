@@ -41,13 +41,19 @@ export function shadeColor(rgbaColor, percent) {
 };
 
 
-export function getMeasurementsFromDimensions({ x, y, z }) {
+export function getMeasurementsFromDimensions({ x, y, z, type }) {
   // Use integer height to avoid floating point precision issues in brick positioning
   // (base * 2) / 1.5 = 33.333... which causes stacking/overlap artifacts
   const defaultHeight = Math.round((base * 2) / 1.5); // = 33 for base=25
   // Properly handle undefined/null y to avoid NaN (base * undefined = NaN, which is truthy!)
-  const height = (y !== undefined && y !== null) ? base * y : defaultHeight;
-  console.log('[getMeasurementsFromDimensions]', { x, y, z, defaultHeight, calculatedHeight: height });
+  let height = (y !== undefined && y !== null) ? base * y : defaultHeight;
+
+  // Adjust height for special brick types
+  if (type === 'plate' || type === 'tile') {
+    height = height / 3; // Plates and tiles are 1/3 the height
+  }
+
+  console.log('[getMeasurementsFromDimensions]', { x, y, z, type, defaultHeight, calculatedHeight: height });
   return { width: base * x, height, depth: base * z };
 }
 

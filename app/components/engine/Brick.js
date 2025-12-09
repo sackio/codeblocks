@@ -60,9 +60,11 @@ export default class Brick extends THREE.Mesh {
       this.position.z = Math.floor(this.position.z / base) * base + (evenDepth ? base : base / 2);
     } else {
       // Placing on ground: use grid snapping for all axes
+      console.log('[Brick] Before ground snap:', { y: this.position.y, height, evenWidth });
       this.position.divide( new THREE.Vector3(base, base, base) ).floor()
         .multiply( new THREE.Vector3(base, base, base) )
         .add( new THREE.Vector3( evenWidth ? base : base / 2, height / 2, evenDepth ? base : base / 2 ) );
+      console.log('[Brick] After ground snap:', { y: this.position.y, heightOver2: height / 2 });
     }
     this.rotation.y = rotation;
     this.geometry.translate(translation, 0, translation);
@@ -150,11 +152,14 @@ function createRectangleMesh(material, width, height, depth, dimensions) {
   mesh.receiveShadow = true;
 
   // Add knobs on top
+  // Position knobs at the top of the brick body (height/2) regardless of brick type
+  const knobY = height / 2;
+
   for ( var i = 0; i < dimensions.x; i++ ) {
     for ( var j = 0; j < dimensions.z; j++ ) {
       const cylinder = new THREE.Mesh(cylinderGeo, material);
       cylinder.position.x = base * i - ((dimensions.x - 1) * base / 2),
-      cylinder.position.y = base / 1.5,
+      cylinder.position.y = knobY,
       cylinder.position.z = base * j - ((dimensions.z - 1) * base / 2),
 
       cylinder.castShadow = true;
@@ -270,15 +275,16 @@ function createConeMesh(material, width, height, depth, dimensions) {
 
 function createPlateMesh(material, width, height, depth, dimensions) {
   // Plates are thinner than regular bricks (1/3 height)
-  const plateHeight = height / 3;
-  return createRectangleMesh(material, width, plateHeight, depth, dimensions);
+  // Height is already adjusted by getMeasurementsFromDimensions
+  return createRectangleMesh(material, width, height, depth, dimensions);
 }
 
 
 function createTileMesh(material, width, height, depth, dimensions) {
-  // Tiles are flat with no knobs
+  // Tiles are flat with no knobs (1/3 height)
+  // Height is already adjusted by getMeasurementsFromDimensions
   let meshes = [];
-  const cubeGeo = new THREE.BoxGeometry( width - 0.1, height / 3 - 0.1, depth - 0.1 );
+  const cubeGeo = new THREE.BoxGeometry( width - 0.1, height - 0.1, depth - 0.1 );
 
   const mesh = new THREE.Mesh(cubeGeo, material);
   meshes.push(mesh);
