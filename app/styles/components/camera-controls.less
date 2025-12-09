@@ -1,0 +1,125 @@
+// ----------------
+// CAMERA CONTROLS
+//
+// Component File
+// ----------------
+
+@import '~styles/vars';
+
+
+:local(.container) {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 200px;
+
+  @media (max-width: 768px) {
+    bottom: 10px;
+    right: 10px;
+    padding: 10px;
+    gap: 8px;
+    min-width: 180px;
+    backdrop-filter: blur(10px);
+  }
+}
+
+
+:local(.title) {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #666;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+
+:local(.inputs) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+
+:local(.inputGroup) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+:local(.label) {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  min-width: 15px;
+}
+
+
+:local(.input) {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #333;
+  background: white;
+  transition: all 0.2s ease;
+  -webkit-appearance: none;
+
+  &:focus {
+    outline: none;
+    border-color: @primary-orange;
+    box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.1);
+  }
+
+  &:hover {
+    border-color: #ccc;
+  }
+
+  @media (max-width: 768px) {
+    padding: 10px 12px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+}
+
+
+:local(.applyButton) {
+  padding: 8px 12px;
+  background: @primary-orange;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 4px;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover {
+    background: darken(@primary-orange, 8%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 14px;
+    font-size: 14px;
+    min-height: 48px;
+  }
+}

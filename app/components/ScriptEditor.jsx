@@ -103,9 +103,10 @@ for (let i = 0; i < 5; i++) {
     script += '// clearScene();\n\n';
 
     bricks.forEach((brick, index) => {
-      const color = RGBAToHexString(brick._color);
+      // Handle both Brick instances (._color) and serialized objects (.color)
+      const color = RGBAToHexString(brick._color || brick.color);
       const pos = brick.position;
-      const dims = brick._dimensions;
+      const dims = brick._dimensions || brick.dimensions;
       const rotation = brick.rotation.y;
 
       script += `// Brick ${index + 1}\n`;
@@ -337,7 +338,7 @@ for (let i = 0; i < 5; i++) {
 
       getColor() {
         const brick = bricks.find(b => b.customId === this.id);
-        return brick ? brick._color : null;
+        return brick ? (brick._color || brick.color) : null;
       }
 
       // Make the object awaitable - this executes the chain
@@ -388,14 +389,18 @@ for (let i = 0; i < 5; i++) {
         // Convert color to RGBA format (supports hex, named colors, etc.)
         const rgbaColor = this._colorToRGBA(color);
 
+        // Ensure brick is not placed below the grid (minimum Y is 12)
+        const minY = 12;
+        const clampedY = Math.max(position.y, minY);
+
         // Create fake intersect for Brick constructor
         const fakeIntersect = {
-          point: new THREE.Vector3(position.x, position.y, position.z),
+          point: new THREE.Vector3(position.x, clampedY, position.z),
           face: { normal: new THREE.Vector3(0, 1, 0) }
         };
 
         const brick = new Brick(fakeIntersect, rgbaColor, finalDimensions, rotation, 0);
-        brick.position.set(position.x, position.y, position.z);
+        brick.position.set(position.x, clampedY, position.z);
 
         // Apply custom ID if provided
         if (id !== null) {
@@ -415,7 +420,10 @@ for (let i = 0; i < 5; i++) {
       moveBrick: (id, position, silent = false) => {
         const brick = bricks.find(b => b.customId === id);
         if (brick) {
-          brick.position.set(position.x, position.y, position.z);
+          // Ensure brick is not moved below the grid (minimum Y is 12)
+          const minY = 12;
+          const clampedY = Math.max(position.y, minY);
+          brick.position.set(position.x, clampedY, position.z);
           if (!silent) {
             updateObject(brick);
           }
@@ -449,8 +457,8 @@ for (let i = 0; i < 5; i++) {
         return bricks.map(b => ({
           id: b.customId,
           position: { x: b.position.x, y: b.position.y, z: b.position.z },
-          color: b._color,
-          dimensions: b._dimensions,
+          color: b._color || b.color,
+          dimensions: b._dimensions || b.dimensions,
         }));
       },
 
@@ -594,8 +602,8 @@ for (let i = 0; i < 5; i++) {
         const targetRGBA = this._colorToRGBA(color);
         return bricks
           .filter(brick => {
-            const c = brick._color;
-            return Math.abs(c.r - targetRGBA.r) < 5 &&
+            const c = brick._color || brick.color;
+            return c && Math.abs(c.r - targetRGBA.r) < 5 &&
                    Math.abs(c.g - targetRGBA.g) < 5 &&
                    Math.abs(c.b - targetRGBA.b) < 5;
           })

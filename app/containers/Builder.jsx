@@ -306,49 +306,42 @@ class Builder extends React.Component {
   }
 
   _handleLoadBuild = (build) => {
-    // Load the script
+    console.log('Loading build:', build);
+
+    // Load the script into state first (don't open editor yet)
     if (build.script) {
-      this.setState({ scriptText: build.script, scriptUserModified: true });
+      this.setState({
+        scriptText: build.script,
+        scriptUserModified: true,
+        scriptEditorOpen: false,  // Keep editor closed for now
+        buildManagerOpen: false,  // Close build manager
+      }, () => {
+        // Callback runs after state is updated
+        // Now open the editor to mount the component and get the ref
+        this.setState({ scriptEditorOpen: true }, () => {
+          // Wait a bit for component to fully mount
+          setTimeout(() => {
+            console.log('Attempting to run script, ref:', this.scriptEditorRef);
+            if (this.scriptEditorRef && this.scriptEditorRef._handleRun) {
+              this.scriptEditorRef._handleRun();
+            } else {
+              console.error('ScriptEditor ref not available');
+            }
+          }, 150);
+        });
+      });
+    } else {
+      // No script, just close the build manager
+      this.setState({ buildManagerOpen: false });
     }
 
-    // Load the JSON (parse and set scene)
+    // Load the JSON into the JSON editor (but don't execute it since script will recreate scene)
+    // The JSON is kept as a reference/backup
     if (build.json) {
-      try {
-        const objects = JSON.parse(build.json);
-
-        // Validate that objects is an array and has valid structure
-        if (!Array.isArray(objects)) {
-          throw new Error('Invalid build data: expected array of objects');
-        }
-
-        // Check if objects have the required fields for brick reconstruction
-        const hasValidBricks = objects.every(obj =>
-          obj && obj.position && obj.color && obj.dimensions
-        );
-
-        if (!hasValidBricks) {
-          // Show warning to user about corrupted build
-          if (window.confirm(
-            `Warning: This build contains corrupted data from an older version.\n\n` +
-            `The build may not load correctly. Would you like to try loading it anyway?\n\n` +
-            `(Corrupted bricks will be skipped)`
-          )) {
-            this.props.setScene(objects);
-          } else {
-            return; // User cancelled, don't load
-          }
-        } else {
-          this.props.setScene(objects);
-        }
-      } catch (err) {
-        console.error('Failed to load build:', err);
-        alert(`Failed to load build: ${err.message}\n\nThis build may be corrupted. Please try saving a new version of your work.`);
-        return; // Don't close the build manager if loading failed
-      }
+      // Just store it in case user wants to view it in JSON editor
+      // Don't parse/execute it since the script will recreate the scene
+      this._loadedJSON = build.json;
     }
-
-    // Close the build manager
-    this.setState({ buildManagerOpen: false });
   }
 
   _handleSaveBuildSuccess = (buildName) => {

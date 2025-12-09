@@ -6,6 +6,7 @@ import Detector from 'utils/threejs/Detector';
 import Brick from 'components/engine/Brick';
 import Message from 'components/Message';
 import ViewControls from 'components/ViewControls';
+import CameraControls from 'components/CameraControls';
 import { RollOverBrick } from 'components/engine/Helpers';
 import {
   PerspectiveCamera,
@@ -20,6 +21,7 @@ import { colors, base } from 'utils/constants';
 
 import styles from 'styles/components/scene';
 
+const knobSize = 7; // LEGO knob height (same as in Brick.js)
 
 class Scene extends React.Component {
   state = {
@@ -71,7 +73,10 @@ class Scene extends React.Component {
     else if (grid !== prevProps.grid && grid !== true) {
       this.grid.visible = false;
     }
-    else if (prevProps.dimensions.x !== dimensions.x || prevProps.dimensions.z !== dimensions.z || prevProps.dimensions.type !== dimensions.type) {
+    else if (prevProps.dimensions.x !== dimensions.x ||
+             prevProps.dimensions.y !== dimensions.y ||
+             prevProps.dimensions.z !== dimensions.z ||
+             prevProps.dimensions.type !== dimensions.type) {
       this.rollOverBrick.setShape(dimensions);
     }
 
@@ -115,11 +120,11 @@ class Scene extends React.Component {
     pointLight.position.set( -1000, 1500, 500 );
     this.scene.add( pointLight );
 
-    const plane = new Plane(3000);
+    const plane = new Plane(10000);
     this.plane = plane;
     this.scene.add(plane);
 
-    const grid = new THREE.GridHelper( 1500, 60, new THREE.Color( 0xbfbfbf ), new THREE.Color( 0xdedede ) );
+    const grid = new THREE.GridHelper( 10000, 200, new THREE.Color( 0xbfbfbf ), new THREE.Color( 0xdedede ) );
     this.grid = grid;
     this.scene.add(grid);
 
@@ -285,9 +290,37 @@ class Scene extends React.Component {
       // Show rollover brick only in build mode (not in edit, paint, or delete modes)
       if (! isDDown && mode === 'build') {
         scene.rollOverBrick.position.copy( intersect.point ).add( intersect.face.normal );
-        scene.rollOverBrick.position.divide( new THREE.Vector3( base, height, base) ).floor()
-          .multiply( new THREE.Vector3( base, height, base ) )
-          .add( new THREE.Vector3( evenWidth ? base : base / 2, height / 2, evenDepth ? base : base / 2 ) );
+
+        // Check if we're placing on top of another brick (face normal pointing up)
+        const isPlacingOnTop = intersect.face &&
+                               intersect.face.normal.y > 0.9 &&
+                               intersect.object &&
+                               intersect.object.type === 'Mesh';
+
+        if (isPlacingOnTop) {
+          // Placing on brick: snap to exact top surface of the brick below
+          // Get the intersect object's bounding box to find its exact top
+          const bbox = new THREE.Box3().setFromObject(intersect.object);
+          const topY = bbox.max.y;
+
+          // Calculate knob protrusion above brick body
+          // Knobs are positioned at base/1.5 with height knobSize (7)
+          // Top of knob = base/1.5 + knobSize/2 = 16.67 + 3.5 = 20.17
+          // Top of standard brick body = (base*2/1.5)/2 = 16.5
+          // Knob protrusion = 20.17 - 16.5 = 3.67
+          const knobProtrusion = (base / 1.5) + (knobSize / 2) - ((base * 2) / 1.5 / 2);
+
+          // Snap X and Z to grid, and snap Y to top of brick body (not top of knobs)
+          // This makes the brick snap DOWN onto the knobs like real LEGO
+          scene.rollOverBrick.position.x = Math.floor(scene.rollOverBrick.position.x / base) * base + (evenWidth ? base : base / 2);
+          scene.rollOverBrick.position.y = topY - knobProtrusion + height / 2;
+          scene.rollOverBrick.position.z = Math.floor(scene.rollOverBrick.position.z / base) * base + (evenDepth ? base : base / 2);
+        } else {
+          // Placing on ground: use grid snapping for all axes
+          scene.rollOverBrick.position.divide( new THREE.Vector3(base, base, base) ).floor()
+            .multiply( new THREE.Vector3(base, base, base) )
+            .add( new THREE.Vector3( evenWidth ? base : base / 2, height / 2, evenDepth ? base : base / 2 ) );
+        }
       }
       if (intersect.object instanceof Brick && (isDDown || isRDown || mode === 'paint' || mode === 'edit')) {
         this.setState({ brickHover: true });
@@ -327,47 +360,34 @@ class Scene extends React.Component {
   }
 
   _onMouseUp(event, scene) {
+    console.log('[_onMouseUp] Called - mode:', this.props.mode);
     const { mode, objects } = this.props;
     const { drag, isDDown, isRDown, isDraggingBrick, lastClickTime, lastClickTarget } = this.state;
-    if (event.target.localName !== 'canvas') return;
+    if (event.target.localName !== 'canvas') {
+      console.log('[_onMouseUp] Not canvas, returning');
+      return;
+    }
     event.preventDefault();
     if (! drag) {
+      console.log('[_onMouseUp] Not dragging, processing click');
       scene.mouse.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
       scene.raycaster.setFromCamera( scene.mouse, scene.camera );
       // Use actual brick instances from the scene instead of props.objects
       const bricks = this._getBrickInstancesFromScene();
       const intersects = scene.raycaster.intersectObjects( [ ...bricks, this.plane ] );
+      console.log('[_onMouseUp] Intersects:', intersects.length);
       if ( intersects.length > 0 ) {
         const intersect = intersects[ 0 ];
+        console.log('[_onMouseUp] Intersect object type:', intersect.object.type);
         if (mode === 'build') {
           // delete cube
           if ( isDDown ) {
             this._deleteCube(intersect);
           }
-          // Double-click to select/deselect brick, single click to stack
-          else if (intersect.object !== this.plane && intersect.object instanceof Brick) {
-            const now = Date.now();
-            const timeSinceLastClick = now - lastClickTime;
-            const isDoubleClick = timeSinceLastClick < 300 && lastClickTarget === intersect.object;
-
-            if (isDoubleClick) {
-              // Double-click: select or deselect
-              if (this.state.selectedBrick === intersect.object) {
-                this._deselectBrick();
-              } else {
-                this._selectBrick(intersect.object);
-              }
-              this.setState({ lastClickTime: 0, lastClickTarget: null });
-            } else {
-              // First click: create brick on top (stacking) and record click
-              this._createCube(intersect, scene.rollOverBrick);
-              this.setState({ lastClickTime: now, lastClickTarget: intersect.object });
-            }
-          }
-          // create cube if clicking on plane
-          else if (intersect.object === this.plane) {
+          // create cube - either on top of existing brick (stacking) or on plane
+          else {
+            console.log('[_onMouseUp] Calling _createCube');
             this._createCube(intersect, scene.rollOverBrick);
-            this.setState({ lastClickTime: 0, lastClickTarget: null });
           }
         }
         else if (mode === 'edit') {
@@ -395,29 +415,141 @@ class Scene extends React.Component {
   }
 
   _createCube(intersect, rollOverBrick) {
+    console.log('[_createCube] Called with dimensions:', this.props.dimensions);
     const { rotation } = this.state;
     const { brickColor, dimensions, objects, addObject } = this.props;
-    let canCreate = true;
-    const { width, depth } = getMeasurementsFromDimensions(dimensions);
+    const { height, width, depth } = getMeasurementsFromDimensions(dimensions);
+    console.log('[_createCube] Calculated measurements:', { height, width, depth });
+
+    // Defensive check: ensure measurements are valid numbers
+    if (isNaN(height) || isNaN(width) || isNaN(depth)) {
+      console.error('[_createCube] BLOCKED: Invalid measurements (NaN detected)', { height, width, depth, dimensions });
+      console.error('[_createCube] This likely means dimensions.y is undefined or invalid');
+      return;
+    }
+
+    // Debug rollOverBrick state
+    console.log('[_createCube] rollOverBrick position:', {
+      x: this.rollOverBrick.position.x,
+      y: this.rollOverBrick.position.y,
+      z: this.rollOverBrick.position.z
+    });
+
+    // Check for NaN in rollOverBrick position (indicates corrupted state)
+    if (isNaN(this.rollOverBrick.position.x) || isNaN(this.rollOverBrick.position.y) || isNaN(this.rollOverBrick.position.z)) {
+      console.error('[_createCube] BLOCKED: rollOverBrick position contains NaN', this.rollOverBrick.position);
+      console.error('[_createCube] The rollOverBrick may have corrupted state. Try refreshing the page.');
+      return;
+    }
+
+    console.log('[_createCube] rollOverBrick geometry:', this.rollOverBrick.geometry);
+    if (this.rollOverBrick.geometry.boundingBox) {
+      console.log('[_createCube] rollOverBrick geometry.boundingBox:', {
+        min: { x: this.rollOverBrick.geometry.boundingBox.min.x, y: this.rollOverBrick.geometry.boundingBox.min.y, z: this.rollOverBrick.geometry.boundingBox.min.z },
+        max: { x: this.rollOverBrick.geometry.boundingBox.max.x, y: this.rollOverBrick.geometry.boundingBox.max.y, z: this.rollOverBrick.geometry.boundingBox.max.z }
+      });
+    } else {
+      console.log('[_createCube] rollOverBrick geometry.boundingBox is NULL - will be computed on the fly');
+    }
+
     // Use actual brick instances from the scene instead of props.objects
     const bricks = this._getBrickInstancesFromScene();
-    const meshBoundingBox = new THREE.Box3().setFromObject(this.rollOverBrick);
-    for (var i = 0; i < bricks.length; i++) {
-      const brickBoundingBox = new THREE.Box3().setFromObject(bricks[i]);
-      const collision = meshBoundingBox.intersectsBox(brickBoundingBox);
-      if (collision) {
-        const dx = Math.abs(brickBoundingBox.max.x - meshBoundingBox.max.x);
-        const dz = Math.abs(brickBoundingBox.max.z - meshBoundingBox.max.z);
-        const yIntsersect = brickBoundingBox.max.y - 9 > meshBoundingBox.min.y;
-        if (yIntsersect && dx !== width && dz !== depth) {
+
+    // Get the bounding box for the brick we want to place
+    const newBrickBox = new THREE.Box3().setFromObject(this.rollOverBrick);
+    console.log('[_createCube] newBrickBox (world space):', {
+      min: { x: newBrickBox.min.x, y: newBrickBox.min.y, z: newBrickBox.min.z },
+      max: { x: newBrickBox.max.x, y: newBrickBox.max.y, z: newBrickBox.max.z }
+    });
+
+    // Check for invalid bounding box (NaN or Infinity)
+    if (!isFinite(newBrickBox.min.y) || !isFinite(newBrickBox.max.y)) {
+      console.error('[_createCube] BLOCKED: Invalid bounding box (NaN or Infinity detected)', newBrickBox);
+      console.error('[_createCube] Try refreshing the page to reset the rollOverBrick geometry.');
+      return;
+    }
+
+    // Ensure the brick cannot be placed below the grid (allow small tolerance for floating point errors)
+    const minY = height / 2;
+    const GROUND_TOLERANCE = 2; // Allow 2 pixels tolerance for floating point precision
+    console.log('[_createCube] minY:', minY, 'newBrickBox.min.y:', newBrickBox.min.y);
+    if (newBrickBox.min.y < -GROUND_TOLERANCE) {
+      // Don't allow placement significantly below ground
+      console.log('[_createCube] BLOCKED: Brick significantly below ground. newBrickBox.min.y =', newBrickBox.min.y);
+      console.log('[_createCube] Expected minimum Y position should be >= 0 (with', GROUND_TOLERANCE, 'pixel tolerance)');
+      console.log('[_createCube] This indicates invalid rollOverBrick geometry or position.');
+      // Force correct the rollOverBrick position
+      const correctedY = Math.max(minY, height / 2);
+      console.log('[_createCube] Attempting to correct rollOverBrick.position.y from', this.rollOverBrick.position.y, 'to', correctedY);
+      this.rollOverBrick.position.y = correctedY;
+      // Retry with corrected position
+      const correctedBrickBox = new THREE.Box3().setFromObject(this.rollOverBrick);
+      console.log('[_createCube] Corrected bounding box:', {
+        min: { x: correctedBrickBox.min.x, y: correctedBrickBox.min.y, z: correctedBrickBox.min.z },
+        max: { x: correctedBrickBox.max.x, y: correctedBrickBox.max.y, z: correctedBrickBox.max.z }
+      });
+      if (correctedBrickBox.min.y < -GROUND_TOLERANCE) {
+        console.error('[_createCube] BLOCKED: Even after correction, brick is below ground. This is a geometry issue.');
+        return;
+      }
+    }
+
+    // Check for collisions with existing bricks
+    let canCreate = true;
+    console.log('[_createCube] Checking collisions with', bricks.length, 'existing bricks');
+    for (let i = 0; i < bricks.length; i++) {
+      const existingBrickBox = new THREE.Box3().setFromObject(bricks[i]);
+
+      // Check if bounding boxes intersect
+      const intersects = newBrickBox.intersectsBox(existingBrickBox);
+
+      if (intersects) {
+        // Calculate overlap in each dimension
+        const xOverlap = Math.min(newBrickBox.max.x, existingBrickBox.max.x) -
+                        Math.max(newBrickBox.min.x, existingBrickBox.min.x);
+        const yOverlap = Math.min(newBrickBox.max.y, existingBrickBox.max.y) -
+                        Math.max(newBrickBox.min.y, existingBrickBox.min.y);
+        const zOverlap = Math.min(newBrickBox.max.z, existingBrickBox.max.z) -
+                        Math.max(newBrickBox.min.z, existingBrickBox.min.z);
+
+        // Check if this is vertical stacking (X and Z overlap, new brick mostly above)
+        // A brick is "mostly above" if its bottom is in the upper portion of the existing brick
+        // or above it entirely
+        const existingBrickHeight = existingBrickBox.max.y - existingBrickBox.min.y;
+        const newBrickBottom = newBrickBox.min.y;
+        const existingBrickTop = existingBrickBox.max.y;
+        const existingBrickMidToTop = existingBrickBox.min.y + (existingBrickHeight * 0.3);
+
+        // If new brick's bottom is in the upper 70% of existing brick or above it,
+        // and there's X/Z overlap, this is stacking - allow it
+        const isVerticallyStacking = newBrickBottom >= existingBrickMidToTop;
+        const hasXZOverlap = xOverlap > 1 && zOverlap > 1;
+
+        if (isVerticallyStacking && hasXZOverlap) {
+          continue; // This is stacking, allow it
+        }
+
+        // Otherwise, check for true interior overlap that would indicate collision
+        // Only block if there's significant overlap in ALL three dimensions
+        const overlapTolerance = 5;
+        if (xOverlap > overlapTolerance && yOverlap > overlapTolerance && zOverlap > overlapTolerance) {
+          console.log('[_createCube] BLOCKED: Collision detected - overlaps:', { xOverlap, yOverlap, zOverlap });
           canCreate = false;
           break;
         }
       }
     }
+
+    console.log('[_createCube] canCreate:', canCreate);
     if (canCreate) {
       const { translation, rotation } = rollOverBrick;
       const brick = new Brick(intersect, brickColor, dimensions, rotation.y, translation);
+
+      // Final check: ensure brick Y position is not below minimum
+      if (brick.position.y < minY) {
+        brick.position.y = minY;
+      }
+
       addObject(brick);
     }
   }
@@ -563,6 +695,13 @@ class Scene extends React.Component {
   }
 
   _onKeyDown(event, scene) {
+    // Don't handle keyboard shortcuts when user is typing in an input or textarea
+    const target = event.target || event.srcElement;
+    const tagName = target.tagName.toLowerCase();
+    if (tagName === 'input' || tagName === 'textarea') {
+      return; // Let the browser handle the event normally
+    }
+
     const { selectedBrick } = scene.state;
     const { mode, undo, redo } = scene.props;
     const moveAmount = base; // 25 pixels per arrow key press
@@ -911,6 +1050,9 @@ class Scene extends React.Component {
   }
 
   _getCameraPosition = () => {
+    if (!this.camera) {
+      return { x: 0, y: 0, z: 0 };
+    }
     return {
       x: this.camera.position.x,
       y: this.camera.position.y,
@@ -1016,6 +1158,10 @@ class Scene extends React.Component {
           onResetView={this._resetView}
           onZoomIn={this._zoomIn}
           onZoomOut={this._zoomOut}
+        />
+        <CameraControls
+          getCameraPosition={this._getCameraPosition}
+          setCameraPosition={this._setCameraPosition}
         />
         <If cond={isDDown && mode === 'build'}>
           <Message>

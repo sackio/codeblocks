@@ -11,6 +11,7 @@ const knobSize = 7;
 
 export default class Brick extends THREE.Mesh {
   constructor(intersect, color, dimensions, rotation, translation) {
+    console.log('[Brick constructor]', { dimensions, color, rotation, translation });
     const cubeMaterial = new THREE.MeshStandardMaterial({
       color: RGBAToHex(color),
       metalness: 0.4,
@@ -19,6 +20,7 @@ export default class Brick extends THREE.Mesh {
       opacity: color.a,
     });
     const { height, width, depth } = getMeasurementsFromDimensions(dimensions);
+    console.log('[Brick constructor] measurements:', { height, width, depth });
     const props = createMesh(cubeMaterial, width, height, depth, dimensions);
     super(...props);
 
@@ -28,10 +30,40 @@ export default class Brick extends THREE.Mesh {
     this.height = height;
     this.width = width;
     this.depth = depth;
+
+    // Calculate position based on intersect
     this.position.copy( intersect.point ).add( intersect.face.normal );
-    this.position.divide( new THREE.Vector3(base, height, base) ).floor()
-      .multiply( new THREE.Vector3(base, height, base) )
-      .add( new THREE.Vector3( evenWidth ? base : base / 2, height / 2, evenDepth ? base : base / 2 ) );
+
+    // Check if we're placing on top of another brick (face normal pointing up)
+    const isPlacingOnTop = intersect.face &&
+                           intersect.face.normal.y > 0.9 &&
+                           intersect.object &&
+                           intersect.object.type === 'Mesh';
+
+    if (isPlacingOnTop) {
+      // Placing on brick: snap to exact top surface of the brick below
+      // Get the intersect object's bounding box to find its exact top
+      const bbox = new THREE.Box3().setFromObject(intersect.object);
+      const topY = bbox.max.y;
+
+      // Calculate knob protrusion above brick body
+      // Knobs are positioned at base/1.5 with height knobSize (7)
+      // Top of knob = base/1.5 + knobSize/2 = 16.67 + 3.5 = 20.17
+      // Top of standard brick body = (base*2/1.5)/2 = 16.5
+      // Knob protrusion = 20.17 - 16.5 = 3.67
+      const knobProtrusion = (base / 1.5) + (knobSize / 2) - ((base * 2) / 1.5 / 2);
+
+      // Snap X and Z to grid, and snap Y to top of brick body (not top of knobs)
+      // This makes the brick snap DOWN onto the knobs like real LEGO
+      this.position.x = Math.floor(this.position.x / base) * base + (evenWidth ? base : base / 2);
+      this.position.y = topY - knobProtrusion + height / 2;
+      this.position.z = Math.floor(this.position.z / base) * base + (evenDepth ? base : base / 2);
+    } else {
+      // Placing on ground: use grid snapping for all axes
+      this.position.divide( new THREE.Vector3(base, base, base) ).floor()
+        .multiply( new THREE.Vector3(base, base, base) )
+        .add( new THREE.Vector3( evenWidth ? base : base / 2, height / 2, evenDepth ? base : base / 2 ) );
+    }
     this.rotation.y = rotation;
     this.geometry.translate(translation, 0, translation);
     this.castShadow = true;

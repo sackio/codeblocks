@@ -99,7 +99,13 @@ function createRollOverGeometry(width, height, depth, dimensions) {
 export class RollOverBrick extends THREE.Mesh {
   constructor(color, dimensions) {
     const { width, height, depth } = getMeasurementsFromDimensions(dimensions);
+    console.log('[RollOverBrick.constructor] Creating with measurements:', { width, height, depth, dimensions });
     const rollOverGeo = createRollOverGeometry(width, height, depth, dimensions);
+
+    // Force bounding box computation to ensure geometry is valid
+    rollOverGeo.computeBoundingBox();
+    console.log('[RollOverBrick.constructor] Geometry bounding box:', rollOverGeo.boundingBox);
+
     const mat = new THREE.MeshBasicMaterial( { color: 0x08173D, opacity: 0.5, transparent: true } );
     super(rollOverGeo, mat);
     this.dimensions = dimensions;
@@ -109,14 +115,25 @@ export class RollOverBrick extends THREE.Mesh {
 
   setShape(dimensions) {
     const { width, height, depth } = getMeasurementsFromDimensions(dimensions);
+
+    // Dispose of old geometry to prevent memory leaks
+    if (this.geometry) {
+      this.geometry.dispose();
+    }
+
+    // Create and assign new geometry
     this.geometry = createRollOverGeometry(width, height, depth, dimensions);
+
+    // Force bounding box recalculation
+    this.geometry.computeBoundingBox();
+
     this.dimensions = dimensions;
     this.translation = 0;
     if (!!this.rotated) {
       this.rotateY( -this.rotated );
     }
     this.rotated = null;
-    console.log('set shape, reset');
+    console.log('[RollOverBrick.setShape] Updated geometry for dimensions:', dimensions);
   }
 
   rotate(angle) {

@@ -45,12 +45,18 @@ export function getMeasurementsFromDimensions({ x, y, z }) {
   // Use integer height to avoid floating point precision issues in brick positioning
   // (base * 2) / 1.5 = 33.333... which causes stacking/overlap artifacts
   const defaultHeight = Math.round((base * 2) / 1.5); // = 33 for base=25
-  return { width: base * x, height: base * y || defaultHeight, depth: base * z };
+  // Properly handle undefined/null y to avoid NaN (base * undefined = NaN, which is truthy!)
+  const height = (y !== undefined && y !== null) ? base * y : defaultHeight;
+  console.log('[getMeasurementsFromDimensions]', { x, y, z, defaultHeight, calculatedHeight: height });
+  return { width: base * x, height, depth: base * z };
 }
 
 
 export function displayNameFromDimensions(dimensions) {
-  const baseName = `${dimensions.x}x${dimensions.z}`;
+  // Include height if specified
+  const baseName = dimensions.y
+    ? `${dimensions.x}×${dimensions.y}×${dimensions.z}`
+    : `${dimensions.x}×${dimensions.z}`;
 
   // For non-rectangle shapes, add shape type to display name
   if (dimensions.type && dimensions.type !== 'rectangle') {

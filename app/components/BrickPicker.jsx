@@ -11,6 +11,7 @@ class BrickPicker extends React.Component {
   state = {
     open: false,
     customWidth: 2,
+    customHeight: '', // Empty means use default height calculation
     customLength: 2,
     selectedType: 'rectangle',
     recentBricks: [],
@@ -22,6 +23,7 @@ class BrickPicker extends React.Component {
     this._handleClickOutside = this._handleClickOutside.bind(this);
     this._handleCustomSize = this._handleCustomSize.bind(this);
     this._handleWidthChange = this._handleWidthChange.bind(this);
+    this._handleHeightChange = this._handleHeightChange.bind(this);
     this._handleLengthChange = this._handleLengthChange.bind(this);
     this._handleShapeTypeChange = this._handleShapeTypeChange.bind(this);
     this._addToRecent = this._addToRecent.bind(this);
@@ -41,7 +43,15 @@ class BrickPicker extends React.Component {
     try {
       const saved = localStorage.getItem('codeblocks_recent_bricks');
       if (saved) {
-        this.setState({ recentBricks: JSON.parse(saved) });
+        const parsed = JSON.parse(saved);
+        // Filter out any bricks with y=1 (from when customHeight defaulted to 1)
+        // These are corrupted and should not be used
+        const filtered = parsed.filter(brick => brick.y !== 1);
+        this.setState({ recentBricks: filtered });
+        // Save the filtered list back to localStorage
+        if (filtered.length !== parsed.length) {
+          localStorage.setItem('codeblocks_recent_bricks', JSON.stringify(filtered));
+        }
       }
     } catch (e) {
       console.error('Failed to load recent bricks:', e);
@@ -53,7 +63,10 @@ class BrickPicker extends React.Component {
 
     // Check if this exact brick already exists
     const exists = recentBricks.some(b =>
-      b.x === brick.x && b.z === brick.z && b.type === brick.type
+      b.x === brick.x &&
+      (b.y || undefined) === (brick.y || undefined) &&
+      b.z === brick.z &&
+      b.type === brick.type
     );
 
     if (exists) return;
@@ -114,6 +127,18 @@ class BrickPicker extends React.Component {
                       />
                     </div>
                     <div className={styles.inputGroup}>
+                      <label>Height (H):</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="16"
+                        value={this.state.customHeight}
+                        onChange={this._handleHeightChange}
+                        placeholder="Auto"
+                        className={styles.sizeInput}
+                      />
+                    </div>
+                    <div className={styles.inputGroup}>
                       <label>Length (L):</label>
                       <input
                         type="number"
@@ -147,13 +172,19 @@ class BrickPicker extends React.Component {
                       <option value={shapeTypes.TILE}>Tile</option>
                     </select>
                   </div>
-                  <div className={styles.previewSection} key={`${this.state.customWidth}-${this.state.customLength}-${this.state.selectedType}`}>
+                  <div className={styles.previewSection} key={`${this.state.customWidth}-${this.state.customHeight}-${this.state.customLength}-${this.state.selectedType}`}>
                     <div className={styles.previewTitle}>Preview</div>
                     <div className={styles.previewBrick}>
-                      {getBrickIconFromDimensions({ x: this.state.customWidth, z: this.state.customLength, type: this.state.selectedType })}
+                      {(() => {
+                        const previewDims = { x: this.state.customWidth, z: this.state.customLength, type: this.state.selectedType };
+                        if (this.state.customHeight !== '' && this.state.customHeight > 0) {
+                          previewDims.y = this.state.customHeight;
+                        }
+                        return getBrickIconFromDimensions(previewDims);
+                      })()}
                     </div>
                     <div className={styles.previewLabel}>
-                      {this.state.customWidth} × {this.state.customLength} - {this.state.selectedType}
+                      {this.state.customWidth}W × {this.state.customHeight || 'Auto'}H × {this.state.customLength}L - {this.state.selectedType}
                     </div>
                   </div>
                   <button onClick={this._handleCustomSize} className={styles.applyButton}>
@@ -213,15 +244,30 @@ class BrickPicker extends React.Component {
     this.setState({ customWidth: value });
   }
 
+  _handleHeightChange(e) {
+    const inputValue = e.target.value;
+    // Allow empty string for "Auto" mode
+    if (inputValue === '') {
+      this.setState({ customHeight: '' });
+    } else {
+      const value = Math.max(1, Math.min(16, parseInt(inputValue) || 1));
+      this.setState({ customHeight: value });
+    }
+  }
+
   _handleLengthChange(e) {
     const value = Math.max(1, Math.min(16, parseInt(e.target.value) || 1));
     this.setState({ customLength: value });
   }
 
   _handleCustomSize() {
-    const { customWidth, customLength, selectedType } = this.state;
+    const { customWidth, customHeight, customLength, selectedType } = this.state;
     const { handleSetBrick } = this.props;
     const brick = { x: customWidth, z: customLength, type: selectedType };
+    // Only include y (height) if it's been explicitly set
+    if (customHeight !== '' && customHeight > 0) {
+      brick.y = customHeight;
+    }
     handleSetBrick(brick);
     this._addToRecent(brick);
     this.setState({ open: false });
