@@ -398,7 +398,14 @@ for (let i = 0; i < 5; i++) {
 
         const brick = new Brick(fakeIntersect, rgbaColor, finalDimensions, rotation, 0);
 
-        // If user provided explicit Y position, override the ground-snapped position
+        // Override ground-snapped positions with explicit script coordinates
+        // This prevents even/odd dimension snapping from misaligning scripted structures
+        if (position.x !== null && position.x !== undefined) {
+          brick.position.x = position.x;
+        }
+        if (position.z !== null && position.z !== undefined) {
+          brick.position.z = position.z;
+        }
         // Y represents the BOTTOM of the brick, so we add height/2 to get the center position
         // This allows scripts to place bricks at specific heights for layered structures
         if (position.y !== null && position.y !== undefined) {
