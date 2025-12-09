@@ -30,48 +30,67 @@ app.post('/api/chat/script', async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    // Add system context about the scripting API
-    const systemMessage = {
-      role: 'system',
-      content: `You are an AI assistant helping with CodeBlocks scripting. CodeBlocks is a LEGO-style 3D builder.
+    const model = process.env.OPENAI_MODEL || 'o1';
+    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3');
+
+    // System context about the scripting API
+    const systemContext = `You are an AI assistant helping with CodeBlocks scripting. CodeBlocks is a LEGO-style 3D builder.
 
 Available API functions:
-- createBrick(x, y, z, color, dimensions, type): Create a brick at position with color {r, g, b, a}
+- createBrick({ position: {x, y, z}, color: {r, g, b, a}, dimensions: {x, z, y, type} }): Create a brick
 - moveBrick(brickId, x, y, z): Move a brick to new position
 - deleteBrick(brickId): Delete a brick
 - setBrickColor(brickId, color): Change brick color
 - clearScene(): Remove all bricks
 - getBricks(): Get all bricks in scene
-- brick(width, length, type): Helper to create dimension object
-- getBrickId(x, y, z): Get brick ID at position
 - wait(ms): Pause execution for milliseconds
 
 Camera functions:
 - setTopView(), setFrontView(), setSideView(), setIsometricView(), resetView()
 - zoomIn(), zoomOut()
 - setCameraPosition(x, y, z), setCameraTarget(x, y, z)
-- getCameraPosition(), getCameraTarget()
-
-Helper:
-- createGrid(rows, cols, spacing, color): Create a grid of bricks
 
 Available brick types: rectangle, slope45, slope33, slopeInverted, cornerInside, cornerOutside, cornerRound, curve, cylinder, cone, wedge, plate, tile
 
 ${currentScript ? `\n\nCurrent script:\n\`\`\`javascript\n${currentScript}\n\`\`\`` : ''}
 
-Provide clear, concise JavaScript code examples. Use async/await for animations.`
+Provide clear, concise JavaScript code examples. Use async/await for animations with createBrick().`;
+
+    let messagesToSend;
+    if (isReasoningModel) {
+      // o1/o3 models: no system messages, prepend context to first user message
+      messagesToSend = [...messages];
+      if (messagesToSend.length > 0 && messagesToSend[0].role === 'user') {
+        messagesToSend[0] = {
+          role: 'user',
+          content: `${systemContext}\n\n${messagesToSend[0].content}`
+        };
+      }
+    } else {
+      // Regular models: use system message
+      messagesToSend = [{ role: 'system', content: systemContext }, ...messages];
+    }
+
+    const apiParams = {
+      model,
+      messages: messagesToSend,
     };
 
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
-      messages: [systemMessage, ...messages],
-      temperature: 0.7,
-      max_tokens: 2000,
-    });
+    if (isReasoningModel) {
+      // o1/o3 models: use max_completion_tokens, no temperature
+      apiParams.max_completion_tokens = 4000;
+    } else {
+      // Regular models: use temperature and max_tokens
+      apiParams.temperature = 0.7;
+      apiParams.max_tokens = 2000;
+    }
+
+    const response = await openai.chat.completions.create(apiParams);
 
     res.json({
       message: response.choices[0].message,
       usage: response.usage,
+      reasoning_tokens: response.usage?.completion_tokens_details?.reasoning_tokens || 0,
     });
   } catch (error) {
     console.error('OpenAI API error:', error);
@@ -91,10 +110,11 @@ app.post('/api/chat/json', async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    // Add system context about the JSON structure
-    const systemMessage = {
-      role: 'system',
-      content: `You are an AI assistant helping with CodeBlocks JSON editing. CodeBlocks uses a JSON format to represent 3D brick scenes.
+    const model = process.env.OPENAI_MODEL || 'o1';
+    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3');
+
+    // System context about the JSON structure
+    const systemContext = `You are an AI assistant helping with CodeBlocks JSON editing. CodeBlocks uses a JSON format to represent 3D brick scenes.
 
 JSON Structure:
 {
@@ -111,26 +131,50 @@ JSON Structure:
 
 Brick types: rectangle, slope45, slope33, slopeInverted, cornerInside, cornerOutside, cornerRound, curve, cylinder, cone, wedge, plate, tile
 
-Position: x (horizontal), y (height), z (depth), in units of 25 (base size)
+Position: x (horizontal), y (height), z (depth) - exact coordinates
 Color: r, g, b (0-255), a (0-1 for opacity)
-Dimensions: x (width), z (length) in studs
+Dimensions: x (width), z (length) in studs, y (height multiplier)
 Rotation: in radians (0, π/2, π, 3π/2)
 
 ${currentJSON ? `\n\nCurrent JSON:\n\`\`\`json\n${currentJSON}\n\`\`\`` : ''}
 
-Help with JSON validation, structure, and brick configurations. Provide valid JSON examples.`
+Help with JSON validation, structure, and brick configurations. Provide valid JSON examples.`;
+
+    let messagesToSend;
+    if (isReasoningModel) {
+      // o1/o3 models: no system messages, prepend context to first user message
+      messagesToSend = [...messages];
+      if (messagesToSend.length > 0 && messagesToSend[0].role === 'user') {
+        messagesToSend[0] = {
+          role: 'user',
+          content: `${systemContext}\n\n${messagesToSend[0].content}`
+        };
+      }
+    } else {
+      // Regular models: use system message
+      messagesToSend = [{ role: 'system', content: systemContext }, ...messages];
+    }
+
+    const apiParams = {
+      model,
+      messages: messagesToSend,
     };
 
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
-      messages: [systemMessage, ...messages],
-      temperature: 0.7,
-      max_tokens: 2000,
-    });
+    if (isReasoningModel) {
+      // o1/o3 models: use max_completion_tokens, no temperature
+      apiParams.max_completion_tokens = 4000;
+    } else {
+      // Regular models: use temperature and max_tokens
+      apiParams.temperature = 0.7;
+      apiParams.max_tokens = 2000;
+    }
+
+    const response = await openai.chat.completions.create(apiParams);
 
     res.json({
       message: response.choices[0].message,
       usage: response.usage,
+      reasoning_tokens: response.usage?.completion_tokens_details?.reasoning_tokens || 0,
     });
   } catch (error) {
     console.error('OpenAI API error:', error);
@@ -150,20 +194,46 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    const messagesToSend = systemPrompt
-      ? [{ role: 'system', content: systemPrompt }, ...messages]
-      : messages;
+    const model = process.env.OPENAI_MODEL || 'o1';
+    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3');
 
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o',
+    let messagesToSend;
+    if (isReasoningModel && systemPrompt) {
+      // o1/o3 models: prepend system prompt to first user message
+      messagesToSend = [...messages];
+      if (messagesToSend.length > 0 && messagesToSend[0].role === 'user') {
+        messagesToSend[0] = {
+          role: 'user',
+          content: `${systemPrompt}\n\n${messagesToSend[0].content}`
+        };
+      }
+    } else if (systemPrompt) {
+      // Regular models: use system message
+      messagesToSend = [{ role: 'system', content: systemPrompt }, ...messages];
+    } else {
+      messagesToSend = messages;
+    }
+
+    const apiParams = {
+      model,
       messages: messagesToSend,
-      temperature: 0.7,
-      max_tokens: 2000,
-    });
+    };
+
+    if (isReasoningModel) {
+      // o1/o3 models: use max_completion_tokens, no temperature
+      apiParams.max_completion_tokens = 4000;
+    } else {
+      // Regular models: use temperature and max_tokens
+      apiParams.temperature = 0.7;
+      apiParams.max_tokens = 2000;
+    }
+
+    const response = await openai.chat.completions.create(apiParams);
 
     res.json({
       message: response.choices[0].message,
       usage: response.usage,
+      reasoning_tokens: response.usage?.completion_tokens_details?.reasoning_tokens || 0,
     });
   } catch (error) {
     console.error('OpenAI API error:', error);
