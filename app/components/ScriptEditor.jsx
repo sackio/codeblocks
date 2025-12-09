@@ -398,6 +398,12 @@ for (let i = 0; i < 5; i++) {
 
         const brick = new Brick(fakeIntersect, rgbaColor, finalDimensions, rotation, 0);
 
+        // If user provided explicit Y position, override the ground-snapped position
+        // This allows scripts to place bricks at specific heights for layered structures
+        if (position.y !== null && position.y !== undefined) {
+          brick.position.y = position.y;
+        }
+
         // Apply custom ID if provided
         if (id !== null) {
           brick.customId = id;
