@@ -45,8 +45,9 @@ export function getMeasurementsFromDimensions({ x, y, z, type }) {
   // Use integer height to avoid floating point precision issues in brick positioning
   // (base * 2) / 1.5 = 33.333... which causes stacking/overlap artifacts
   const defaultHeight = Math.round((base * 2) / 1.5); // = 33 for base=25
-  // Properly handle undefined/null y to avoid NaN (base * undefined = NaN, which is truthy!)
-  let height = (y !== undefined && y !== null) ? base * y : defaultHeight;
+  // dimensions.y represents "how many standard brick heights tall"
+  // So y: 1 = 1 standard height (33), y: 2 = 2 standard heights (66), etc.
+  let height = (y !== undefined && y !== null) ? defaultHeight * y : defaultHeight;
 
   // Adjust height for special brick types
   if (type === 'plate' || type === 'tile') {
