@@ -3,6 +3,8 @@ import Brick from 'components/engine/Brick';
 import { RGBAToHexString } from 'utils';
 import { examplesList } from 'utils/examples';
 import AIHelper from 'components/AIHelper';
+import { createCollisionManager } from 'utils/collision';
+import { createAnimator } from 'utils/animator';
 
 import styles from 'styles/components/script-editor';
 
@@ -235,143 +237,12 @@ for (let i = 0; i < 5; i++) {
       getCameraTarget,
     } = this.props;
 
-    // Object-oriented chainable Brick wrapper
-    class BrickAPI {
-      constructor(brickId, apiMethods) {
-        this.id = brickId;
-        this._api = apiMethods;
-        this._chain = Promise.resolve();
-        this._silent = true; // Always operate in silent mode by default to prevent excessive Redux updates
-        this._needsSync = false; // Track if we need to sync Redux at the end
-      }
-
-      // Enable silent mode - updates Three.js meshes without Redux updates
-      // This is now the default behavior, but kept for backwards compatibility
-      silent() {
-        this._silent = true;
-        return this;
-      }
-
-      // Sync Redux state after silent operations
-      sync() {
-        this._chain = this._chain.then(() => {
-          const brick = bricks.find(b => b.customId === this.id);
-          if (brick) {
-            updateObject(brick);
-            this._needsSync = false;
-          }
-        });
-        return this;
-      }
-
-      // Chainable methods - they add to the promise chain and return this
-      color(newColor) {
-        this._chain = this._chain.then(() => {
-          this._api.setBrickColor(this.id, newColor, this._silent);
-          if (this._silent) {
-            this._needsSync = true;
-          }
-        });
-        return this;
-      }
-
-      move(position) {
-        this._chain = this._chain.then(() => {
-          this._api.moveBrick(this.id, position, this._silent);
-          if (this._silent) {
-            this._needsSync = true;
-          }
-        });
-        return this;
-      }
-
-      moveBy(delta) {
-        this._chain = this._chain.then(() => {
-          const brick = bricks.find(b => b.customId === this.id);
-          if (brick) {
-            const newPos = {
-              x: brick.position.x + (delta.x || 0),
-              y: brick.position.y + (delta.y || 0),
-              z: brick.position.z + (delta.z || 0)
-            };
-            this._api.moveBrick(this.id, newPos, this._silent);
-            if (this._silent) {
-              this._needsSync = true;
-            }
-          }
-        });
-        return this;
-      }
-
-      rotate(angle) {
-        this._chain = this._chain.then(() => {
-          const brick = bricks.find(b => b.customId === this.id);
-          if (brick) {
-            brick.rotation.y = angle;
-            if (!this._silent) {
-              updateObject(brick);
-            } else {
-              this._needsSync = true;
-            }
-          }
-        });
-        return this;
-      }
-
-      wait(ms) {
-        this._chain = this._chain.then(() => this._api.wait(ms));
-        return this;
-      }
-
-      delete() {
-        this._chain = this._chain.then(() => {
-          this._api.deleteBrick(this.id);
-        });
-        return this._chain; // Return the promise for final await
-      }
-
-      // Get properties (not chainable - execute immediately)
-      getPosition() {
-        const brick = bricks.find(b => b.customId === this.id);
-        return brick ? { x: brick.position.x, y: brick.position.y, z: brick.position.z } : null;
-      }
-
-      getColor() {
-        const brick = bricks.find(b => b.customId === this.id);
-        return brick ? (brick._color || brick.color) : null;
-      }
-
-      // Make the object awaitable - this executes the chain
-      then(resolve, reject) {
-        return this._chain
-          .then(() => {
-            // Auto-sync Redux state if any operations were performed in silent mode
-            if (this._needsSync) {
-              const brick = bricks.find(b => b.customId === this.id);
-              if (brick) {
-                updateObject(brick);
-                this._needsSync = false;
-              }
-            }
-            return this;
-          })
-          .then(resolve, reject)
-          .catch((err) => {
-            // Log error to console to help debug animation issues
-            console.error('BrickAPI chain error:', err);
-            // Re-throw so it can be caught by user code if they use try-catch
-            if (reject) {
-              reject(err);
-            } else {
-              throw err;
-            }
-          });
-      }
-    }
+    // Create CollisionManager for collision detection
+    const collisionManager = createCollisionManager(bricks);
 
     const api = {
       // Create a brick with specified options
-      // Returns BrickAPI object for chaining
+      // Returns brick ID (string) - use animate() for animations
       createBrick: (options = {}) => {
         const {
           type = 'rectangle',
@@ -380,11 +251,29 @@ for (let i = 0; i < 5; i++) {
           rotation = 0,
           dimensions = { x: 2, z: 2 },
           id = null, // Optional custom ID
-          render = true // Whether to add to scene immediately
+          render = true, // Whether to add to scene immediately
+          checkCollision = true, // NEW: Check for collisions by default
+          force = false // NEW: Force placement even if collision detected
         } = options;
 
         // Merge type into dimensions to ensure it's always set
         const finalDimensions = { ...dimensions, type };
+
+        // Check for collisions if enabled and not forcing
+        if (checkCollision && !force && position.y !== null) {
+          const testPosition = { x: position.x, y: position.y, z: position.z };
+          const collisions = collisionManager.findCollisions(testPosition, finalDimensions);
+
+          if (collisions.length > 0) {
+            console.warn(
+              `[createBrick] Collision detected at position (${position.x}, ${position.y}, ${position.z}). ` +
+              `${collisions.length} brick(s) would overlap. Use force: true to override, or ` +
+              `use getNextFreePosition() to find a free position automatically.`
+            );
+            // Don't create the brick if there's a collision and force is not set
+            return null;
+          }
+        }
 
         // Convert color to RGBA format (supports hex, named colors, etc.)
         const rgbaColor = this._colorToRGBA(color);
@@ -408,8 +297,8 @@ for (let i = 0; i < 5; i++) {
           addObject(brick);
         }
 
-        // Return BrickAPI object for OOP style
-        return new BrickAPI(brick.customId, api);
+        // Return brick ID (string)
+        return brick.customId;
       },
 
       // Move a brick to a new position
@@ -458,11 +347,23 @@ for (let i = 0; i < 5; i++) {
         }));
       },
 
-      // Get a brick by ID and wrap it for OOP chaining
+      // Create an animator for a brick (new animation API)
+      // Returns BrickAnimator instance for command-based animations
+      animate: (brickId) => {
+        return createAnimator(brickId, api, bricks);
+      },
+
+      // DEPRECATED: Get a brick by ID - use animate() for animations
+      // Returns basic brick info object (not BrickAnimator)
       brick: (brickId) => {
         const brick = bricks.find(b => b.customId === brickId);
         if (!brick) return null;
-        return new BrickAPI(brickId, api);
+        return {
+          id: brick.customId,
+          position: { x: brick.position.x, y: brick.position.y, z: brick.position.z },
+          color: brick._color || brick.color,
+          dimensions: brick._dimensions || brick.dimensions
+        };
       },
 
       // Alias for backwards compatibility (returns just ID)
@@ -590,7 +491,12 @@ for (let i = 0; i < 5; i++) {
             const dz = Math.abs(brick.position.z - position.z);
             return dx < tolerance && dy < tolerance && dz < tolerance;
           })
-          .map(b => new BrickAPI(b.customId, api));
+          .map(b => ({
+            id: b.customId,
+            position: { x: b.position.x, y: b.position.y, z: b.position.z },
+            color: b._color || b.color,
+            dimensions: b._dimensions || b.dimensions
+          }));
       },
 
       // Find bricks by color (supports hex strings or color names)
@@ -603,13 +509,140 @@ for (let i = 0; i < 5; i++) {
                    Math.abs(c.g - targetRGBA.g) < 5 &&
                    Math.abs(c.b - targetRGBA.b) < 5;
           })
-          .map(b => new BrickAPI(b.customId, api));
+          .map(b => ({
+            id: b.customId,
+            position: { x: b.position.x, y: b.position.y, z: b.position.z },
+            color: b._color || b.color,
+            dimensions: b._dimensions || b.dimensions
+          }));
       },
 
       // Find a brick by ID
       findBrickById: (id) => {
         const brick = bricks.find(b => b.customId === id);
-        return brick ? new BrickAPI(brick.customId, api) : null;
+        return brick ? {
+          id: brick.customId,
+          position: { x: brick.position.x, y: brick.position.y, z: brick.position.z },
+          color: brick._color || brick.color,
+          dimensions: brick._dimensions || brick.dimensions
+        } : null;
+      },
+
+      // ============================================
+      // COLLISION DETECTION API (NEW)
+      // ============================================
+
+      /**
+       * Get all bricks that collide with the given brick
+       * @param {string} brickId - Brick ID to test
+       * @returns {Array} Array of colliding brick objects
+       */
+      getCollisions: (brickId) => {
+        const brick = bricks.find(b => b.customId === brickId);
+        if (!brick) return [];
+
+        const brickDimensions = brick._dimensions || brick.dimensions;
+        if (!brickDimensions) return [];
+
+        const collisions = collisionManager.findCollisions(
+          brick.position,
+          brickDimensions,
+          [brickId]
+        );
+
+        return collisions.map(b => ({
+          id: b.customId,
+          position: { x: b.position.x, y: b.position.y, z: b.position.z },
+          color: b._color || b.color,
+          dimensions: b._dimensions || b.dimensions
+        }));
+      },
+
+      /**
+       * Test if a position would cause collisions before placing a brick
+       * @param {Object} position - {x, y, z} position to test
+       * @param {Object} dimensions - {x, z, y?, type?} dimensions to test
+       * @param {Array} excludeIds - Optional brick IDs to exclude from test
+       * @returns {Object} {collision: boolean, collidingBricks: Array}
+       */
+      testPosition: (position, dimensions, excludeIds = []) => {
+        const result = collisionManager.testPosition(position, dimensions, excludeIds);
+        return {
+          collision: result.collision,
+          collidingBricks: result.collidingBricks.map(b => ({
+            id: b.customId,
+            position: { x: b.position.x, y: b.position.y, z: b.position.z },
+            color: b._color || b.color,
+            dimensions: b._dimensions || b.dimensions
+          }))
+        };
+      },
+
+      /**
+       * Find a free position near a starting point using spiral search
+       * @param {Object} start - {x, y, z} starting position
+       * @param {Object} dimensions - {x, z, y?, type?} dimensions for the brick
+       * @param {Object} options - {spacing?: 25, maxRadius?: 20, excludeIds?: []}
+       * @returns {Object|null} Free position or null if none found
+       */
+      findFreePosition: (start, dimensions, options = {}) => {
+        return collisionManager.findFreePosition(start, dimensions, options);
+      },
+
+      /**
+       * Get the bounding box (AABB) of a brick
+       * @param {string} brickId - Brick ID
+       * @returns {Object|null} {min: {x,y,z}, max: {x,y,z}} or null if brick not found
+       */
+      getBounds: (brickId) => {
+        const brick = bricks.find(b => b.customId === brickId);
+        if (!brick) return null;
+
+        const brickDimensions = brick._dimensions || brick.dimensions;
+        if (!brickDimensions) return null;
+
+        return collisionManager.getBounds(brick.position, brickDimensions);
+      },
+
+      /**
+       * Get the center point of a brick
+       * @param {string} brickId - Brick ID
+       * @returns {Object|null} {x, y, z} center position or null if brick not found
+       */
+      getCenter: (brickId) => {
+        const brick = bricks.find(b => b.customId === brickId);
+        if (!brick) return null;
+        return collisionManager.getCenter(brick);
+      },
+
+      /**
+       * Calculate volume of a brick
+       * @param {string} brickId - Brick ID
+       * @returns {number|null} Volume in cubic units or null if brick not found
+       */
+      getVolume: (brickId) => {
+        const brick = bricks.find(b => b.customId === brickId);
+        if (!brick) return null;
+
+        const brickDimensions = brick._dimensions || brick.dimensions;
+        if (!brickDimensions) return null;
+
+        return collisionManager.getVolume(brickDimensions);
+      },
+
+      /**
+       * Get all bricks within a region (bounding box)
+       * @param {Object} bounds - {min: {x,y,z}, max: {x,y,z}}
+       * @returns {Array} Array of bricks within the region
+       */
+      getBricksInRegion: (bounds) => {
+        const bricksInRegion = collisionManager.getBricksInRegion(bounds);
+        return bricksInRegion.map(b => ({
+          id: b.customId,
+          position: { x: b.position.x, y: b.position.y, z: b.position.z },
+          color: b._color || b.color,
+          dimensions: b._dimensions || b.dimensions
+        }));
       },
 
       // Snap position to grid

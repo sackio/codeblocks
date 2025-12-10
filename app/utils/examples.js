@@ -265,161 +265,88 @@ for (let i = 0; i < shapes.length; i++) {
 
   'oop-dancing-brick': {
     name: 'OOP: Dancing Brick',
-    description: 'Learn method chaining with a dancing brick!',
-    code: `// Dancing Brick (OOP Style!)
+    description: 'Learn animation chaining with a dancing brick!',
+    code: `// Dancing Brick - v2.0 API
 // Watch this brick move and change colors!
 
-const dancer = createBrick({
+const dancerId = createBrick({
   type: 'rectangle',
   color: 'red',
   position: { x: 0, y: 12, z: 0 }
 });
 
-// Chain methods together!
-await dancer
+if (!dancerId) {
+  console.error("Failed to create brick - collision detected");
+  return;
+}
+
+// Chain animations together using animate()!
+await animate(dancerId)
   .wait(500)
   .color('blue')
   .wait(300)
-  .moveBy({ x: 50 })
+  .moveBy({ x: 50, y: 0, z: 0 })
   .wait(300)
   .color('green')
   .wait(300)
-  .moveBy({ z: 50 })
+  .moveBy({ x: 0, y: 0, z: 50 })
   .wait(300)
   .color('yellow')
   .wait(300)
-  .moveBy({ x: -50 })
+  .moveBy({ x: -50, y: 0, z: 0 })
   .wait(300)
   .color('purple')
   .wait(300)
-  .moveBy({ z: -50 })
+  .moveBy({ x: 0, y: 0, z: -50 })
   .wait(300)
-  .color('orange');`
+  .color('orange')
+  .run();`
   },
 
   'oop-rainbow-tower': {
     name: 'OOP: Rainbow Tower',
-    description: 'Build and animate a tower with OOP style',
-    code: `// Rainbow Tower (OOP Style!)
+    description: 'Build and animate a tower - v2.0 API',
+    code: `// Rainbow Tower - v2.0 API
 // Build a tower and animate it!
 
 const colors = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
-const bricks = [];
+const brickIds = [];
 
 // Build the tower
 for (let i = 0; i < 6; i++) {
-  const brick = createBrick({
+  const brickId = createBrick({
     color: colors[i],
     position: { x: 0, y: i * 33, z: 0 },
     dimensions: { x: 2, z: 2 }
   });
-  bricks.push(brick);
+
+  if (brickId) {
+    brickIds.push(brickId);
+  }
   await wait(200);
 }
 
-// Animate each brick!
-for (const brick of bricks) {
-  await brick
-    .moveBy({ x: 25 })
+// Animate each brick using animate()!
+for (const brickId of brickIds) {
+  await animate(brickId)
+    .moveBy({ x: 25, y: 0, z: 0 })
     .wait(100)
     .color('#ffffff')
     .wait(100)
-    .moveBy({ x: -25 })
-    .wait(100);
+    .moveBy({ x: -25, y: 0, z: 0 })
+    .wait(100)
+    .run();
 }
 
 // Make them all spin!
-for (const brick of bricks) {
-  await brick.rotate(Math.PI / 4).wait(50);
+for (const brickId of brickIds) {
+  await animate(brickId)
+    .rotate(Math.PI / 4)
+    .wait(50)
+    .run();
 }`
   },
 
-  'oop-grid-animation': {
-    name: 'OOP: Grid Animation',
-    description: 'Use OOP to animate a grid',
-    code: `// Animated Grid (OOP Style!)
-// Create a grid and make it come alive!
-
-const grid = await createGrid(5, 5, {
-  color: '#888888',
-  type: 'plate',
-  animate: true,
-  delay: 30
-});
-
-await wait(500);
-
-// Wave animation - animations now auto-batch updates!
-const animations = [];
-
-for (let i = 0; i < grid.length; i++) {
-  const row = Math.floor(i / 5);
-  const col = i % 5;
-  const initialDelay = (row + col) * 100;
-
-  // Create a promise for each animation
-  const animationPromise = (async () => {
-    try {
-      // Wait for the initial wave delay
-      await wait(initialDelay);
-
-      // Execute the animation - Redux syncs automatically at the end!
-      await grid[i]
-        .color('#ff6b35')
-        .wait(200)
-        .moveBy({ y: 12 })
-        .wait(200)
-        .color('#00aaff')
-        .wait(200)
-        .moveBy({ y: -12 })
-        .wait(200)
-        .color('#888888');
-    } catch (err) {
-      console.error('Animation error for brick', i, ':', err);
-    }
-  })();
-
-  animations.push(animationPromise);
-}
-
-// Wait for all animations to complete
-await Promise.all(animations);`
-  },
-
-  'oop-color-cycle': {
-    name: 'OOP: Color Cycle',
-    description: 'Watch bricks cycle through colors',
-    code: `// Color Cycling (OOP + Functional Mix!)
-// Mix both programming styles!
-
-const colors = ['#ff0000', '#ff7700', '#ffdd00', '#00ff00', '#0088ff', '#8800ff'];
-
-// Create bricks using functional style
-for (let i = 0; i < 5; i++) {
-  createBrick({
-    color: colors[0],
-    position: { x: i * 50, y: 12, z: 0 }
-  });
-  await wait(100);
-}
-
-// Animate using OOP style!
-for (let cycle = 0; cycle < 3; cycle++) {
-  for (let i = 0; i < 5; i++) {
-    const brickId = getBrickId(i);
-    const b = brick(brickId);
-
-    for (const color of colors) {
-      await b.color(color).wait(200);
-    }
-  }
-}
-
-// Final rainbow!
-for (let i = 0; i < 5; i++) {
-  brick(getBrickId(i)).color(colors[i]);
-}`
-  },
 
   'camera-tour': {
     name: 'Camera Tour',
@@ -474,17 +401,22 @@ await resetView();`
 
   'motion-tracking': {
     name: 'Motion Tracking Camera',
-    description: 'Camera follows a moving brick like a movie!',
-    code: `// Motion Tracking Demo
+    description: 'Camera follows a moving brick like a movie - v2.0 API!',
+    code: `// Motion Tracking Demo - v2.0 API
 // Watch the camera follow a brick around the scene!
 
 // Create our star brick
-const hero = createBrick({
+const heroId = createBrick({
   type: 'cylinder',
   color: '#ff6b35',
   position: { x: 0, y: 12, z: 0 },
   dimensions: { x: 2, z: 2 }
 });
+
+if (!heroId) {
+  console.error("Failed to create hero brick");
+  return;
+}
 
 await wait(500);
 
@@ -498,8 +430,11 @@ await wait(500);
 
 // Move forward while camera tracks
 for (let i = 0; i < 8; i++) {
-  await hero.moveBy({ z: 25 });
-  const pos = hero.getPosition();
+  await animate(heroId).moveBy({ x: 0, y: 0, z: 25 }).run();
+
+  const heroInfo = brick(heroId);
+  if (!heroInfo) break;
+  const pos = heroInfo.position;
 
   // Camera follows from behind and above
   await setCameraView(
@@ -514,8 +449,11 @@ await wait(500);
 
 // Turn and camera moves to side view
 for (let i = 0; i < 8; i++) {
-  await hero.moveBy({ x: 25 });
-  const pos = hero.getPosition();
+  await animate(heroId).moveBy({ x: 25, y: 0, z: 0 }).run();
+
+  const heroInfo = brick(heroId);
+  if (!heroInfo) break;
+  const pos = heroInfo.position;
 
   // Camera tracks from the side
   await setCameraView(
@@ -529,18 +467,21 @@ for (let i = 0; i < 8; i++) {
 await wait(500);
 
 // Circle around the brick!
-const finalPos = hero.getPosition();
-for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
-  const radius = 250;
-  const camX = finalPos.x + Math.cos(angle) * radius;
-  const camZ = finalPos.z + Math.sin(angle) * radius;
+const finalInfo = brick(heroId);
+if (finalInfo) {
+  const finalPos = finalInfo.position;
+  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 12) {
+    const radius = 250;
+    const camX = finalPos.x + Math.cos(angle) * radius;
+    const camZ = finalPos.z + Math.sin(angle) * radius;
 
-  await setCameraView(
-    { x: camX, y: finalPos.y + 150, z: camZ },
-    { x: finalPos.x, y: finalPos.y, z: finalPos.z }
-  );
+    await setCameraView(
+      { x: camX, y: finalPos.y + 150, z: camZ },
+      { x: finalPos.x, y: finalPos.y, z: finalPos.z }
+    );
 
-  await wait(100);
+    await wait(100);
+  }
 }
 
 await wait(500);
@@ -753,8 +694,8 @@ for (let frame = 0; frame < 50; frame++) {
 
   'solar-system': {
     name: 'Solar System',
-    description: 'Orbiting planets around a sun!',
-    code: `// Solar System
+    description: 'Orbiting planets around a sun - v2.0 API!',
+    code: `// Solar System - v2.0 API
 // Watch planets orbit around the sun!
 
 // Create the sun
@@ -774,7 +715,7 @@ const planets = [
   ['#cc8855', 280, 0.3, 3],    // Jupiter
 ];
 
-const planetBricks = planets.map(([color, radius, speed, size]) => {
+const planetIds = planets.map(([color, radius, speed, size]) => {
   const angle = Math.random() * Math.PI * 2;
   return createBrick({
     type: 'cylinder',
@@ -790,16 +731,19 @@ const planetBricks = planets.map(([color, radius, speed, size]) => {
 
 await wait(500);
 
-// Animate orbital motion
+// Animate orbital motion using animate()
 for (let i = 0; i < 100; i++) {
   for (let p = 0; p < planets.length; p++) {
+    const planetId = planetIds[p];
+    if (!planetId) continue;
+
     const [_, radius, speed] = planets[p];
     const angle = (i * speed) * (Math.PI / 180);
 
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
 
-    await planetBricks[p].moveTo({ x, y: 100, z });
+    await animate(planetId).move({ x, y: 100, z }).run();
   }
   await wait(50);
 }`
@@ -816,22 +760,27 @@ async function firework(x, z) {
   const color = colors[Math.floor(Math.random() * colors.length)];
 
   // Launch rocket
-  const rocket = createBrick({
+  const rocketId = createBrick({
     type: 'cylinder',
     color: color,
     position: { x, y: 0, z },
     dimensions: { x: 1, z: 1 }
   });
 
+  if (!rocketId) {
+    console.error("Failed to create rocket");
+    return;
+  }
+
   const launchHeight = 200 + Math.random() * 100;
 
   for (let h = 0; h < launchHeight; h += 10) {
-    await rocket.moveTo({ x, y: h, z });
+    await animate(rocketId).move({ x, y: h, z }).run();
     await wait(20);
   }
 
   // Explosion!
-  await removeBrick(rocket);
+  await deleteBrick(rocketId);
 
   const particles = 12;
   const explosionBricks = [];
@@ -843,32 +792,34 @@ async function firework(x, z) {
     const particleX = x + Math.cos(angle) * 10;
     const particleZ = z + Math.sin(angle) * 10;
 
-    const particle = createBrick({
+    const particleId = createBrick({
       type: 'cylinder',
       color: color,
       position: { x: particleX, y: launchHeight, z: particleZ },
       dimensions: { x: 1, z: 1, y: 0.5 }
     });
 
-    explosionBricks.push({ brick: particle, angle, speed });
+    if (particleId) {
+      explosionBricks.push({ particleId, angle, speed });
+    }
   }
 
   // Animate explosion
   for (let t = 0; t < 20; t++) {
-    for (const { brick, angle, speed } of explosionBricks) {
+    for (const { particleId, angle, speed } of explosionBricks) {
       const dist = speed * t;
       const newX = x + Math.cos(angle) * dist;
       const newZ = z + Math.sin(angle) * dist;
       const newY = launchHeight - t * t * 0.5; // Gravity
 
-      await brick.moveTo({ x: newX, y: newY, z: newZ });
+      await animate(particleId).move({ x: newX, y: newY, z: newZ }).run();
     }
     await wait(50);
   }
 
   // Fade out
-  for (const { brick } of explosionBricks) {
-    await removeBrick(brick);
+  for (const { particleId } of explosionBricks) {
+    await deleteBrick(particleId);
   }
 }
 
@@ -1022,23 +973,25 @@ const spacing = 35;
 const maxHeight = 200;
 
 // Create initial bars
-const barBricks = [];
+const barIds = [];
 for (let i = 0; i < bars; i++) {
   const x = i * spacing - (bars * spacing) / 2;
-  const bar = createBrick({
+  const barId = createBrick({
     type: 'rectangle',
     color: '#00ff88',
     position: { x, y: 12, z: 0 },
     dimensions: { x: 1, z: 2, y: 0.5 }
   });
-  barBricks.push(bar);
+  if (barId) {
+    barIds.push(barId);
+  }
 }
 
 await wait(500);
 
 // Animate the visualizer
 for (let beat = 0; beat < 100; beat++) {
-  for (let i = 0; i < bars; i++) {
+  for (let i = 0; i < barIds.length; i++) {
     // Simulate frequency data with sine waves
     const freq1 = Math.sin(beat * 0.1 + i * 0.3) * 0.5 + 0.5;
     const freq2 = Math.sin(beat * 0.15 + i * 0.5) * 0.3 + 0.3;
@@ -1052,9 +1005,10 @@ for (let beat = 0; beat < 100; beat++) {
     const color = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
 
     const x = i * spacing - (bars * spacing) / 2;
-    await barBricks[i]
-      .moveTo({ x, y: height / 2, z: 0 })
-      .color(color);
+    await animate(barIds[i])
+      .move({ x, y: height / 2, z: 0 })
+      .color(color)
+      .run();
   }
 
   await wait(50);

@@ -34,27 +34,141 @@ app.post('/api/chat/script', async (req, res) => {
     const isReasoningModel = model.startsWith('o1') || model.startsWith('o3');
 
     // System context about the scripting API
-    const systemContext = `You are an AI assistant helping with CodeBlocks scripting. CodeBlocks is a LEGO-style 3D builder.
+    const systemContext = `You are an AI assistant helping with CodeBlocks scripting. CodeBlocks is a LEGO-style 3D builder with automatic collision detection.
 
-Available API functions:
-- createBrick({ position: {x, y, z}, color: {r, g, b, a}, dimensions: {x, z, y, type} }): Create a brick
-- moveBrick(brickId, x, y, z): Move a brick to new position
+=== IMPORTANT: CodeBlocks v2.0 API (Collision-Aware) ===
+
+CORE PRINCIPLES:
+1. Safe by default: createBrick() prevents overlapping bricks automatically
+2. Explicit overrides available when needed
+3. createBrick() returns brick ID (string), NOT an object
+4. Use animate() for animations (command pattern, not promise chaining)
+
+CORE BRICK FUNCTIONS:
+- createBrick(options): Create a brick with collision detection
+  * Returns: brick ID (string) on success, null if collision detected
+  * Parameters:
+    - position: {x, y, z} (required if y is set, otherwise auto-places at y=24)
+    - color: hex string '#ff6b35' or CSS color name 'red' (default: '#ff6b35')
+    - dimensions: {x, z} in studs (default: {x: 2, z: 2})
+    - type: brick shape (default: 'rectangle')
+    - rotation: 0 to 2π radians (default: 0)
+    - checkCollision: true/false (default: true) - check for overlaps
+    - force: true/false (default: false) - override collision detection
+  * Example: const id = createBrick({ color: 'red', position: {x: 0, y: 24, z: 0} });
+
+- animate(brickId): Create animation for a brick (returns animator with chainable commands)
+  * Commands: .color(newColor), .move(position), .moveBy(delta), .rotate(angle), .wait(ms), .delete()
+  * Must call .run() at end to execute
+  * Example: await animate(id).color('blue').wait(500).move({x: 50, y: 24, z: 0}).run();
+
+- brick(brickId): Get brick info
+  * Returns: {id, position, color, dimensions, rotation} or null
+
+- moveBrick(brickId, position): Move brick (no collision check)
 - deleteBrick(brickId): Delete a brick
-- setBrickColor(brickId, color): Change brick color
+- setBrickColor(brickId, color): Change color
 - clearScene(): Remove all bricks
-- getBricks(): Get all bricks in scene
-- wait(ms): Pause execution for milliseconds
+- getBricks(): Get all brick objects
+- wait(ms): Pause execution
 
-Camera functions:
+COLLISION DETECTION FUNCTIONS:
+- getCollisions(position, dimensions): Find bricks at position
+  * Returns: array of colliding bricks
+- testPosition(position, dimensions): Check if position is free
+  * Returns: true if free, false if occupied
+- findFreePosition(start, dimensions, options): Find nearest free position
+  * Returns: {x, y, z} position or null
+  * Options: {spacing: 25, maxRadius: 20, excludeIds: []}
+- getBounds(brickId): Get AABB bounding box
+  * Returns: {min: {x, y, z}, max: {x, y, z}}
+- getCenter(brickId): Get center position
+  * Returns: {x, y, z}
+- getVolume(brickId): Calculate volume
+  * Returns: number (cubic units)
+- getBricksInRegion(bounds): Query bricks in region
+  * bounds: {min: {x, y, z}, max: {x, y, z}}
+  * Returns: array of bricks
+
+CAMERA FUNCTIONS:
 - setTopView(), setFrontView(), setSideView(), setIsometricView(), resetView()
 - zoomIn(), zoomOut()
 - setCameraPosition(x, y, z), setCameraTarget(x, y, z)
 
-Available brick types: rectangle, slope45, slope33, slopeInverted, cornerInside, cornerOutside, cornerRound, curve, cylinder, cone, wedge, plate, tile
+BRICK TYPES: rectangle, slope45, slope33, slopeInverted, cornerInside, cornerOutside, cornerRound, curve, cylinder, cone, wedge, plate, tile
+
+COORDINATE SYSTEM:
+- X: horizontal (left/right)
+- Y: vertical (height) - typical ground level is y=24
+- Z: depth (forward/back)
+- Measurements: base unit = 25, default brick height = 33
+
+BEST PRACTICES:
+1. Always use await with animate().run()
+2. Let collision detection work (don't force unless needed)
+3. Use findFreePosition() for automatic placement
+4. Stack bricks with y = previousY + 33 (standard brick height)
+5. Use testPosition() before moving to check safety
+6. Chain animations: animate(id).color('red').wait(500).move({x: 50, y: 24, z: 0}).run()
+
+COMMON PATTERNS:
+
+Beginner (collision-free by default):
+\`\`\`javascript
+// Simple stack - automatically prevents overlaps
+for (let i = 0; i < 5; i++) {
+  createBrick({
+    color: 'red',
+    position: { x: 0, y: i * 33 + 24, z: 0 }
+  });
+  await wait(200);
+}
+\`\`\`
+
+Intermediate (using collision API):
+\`\`\`javascript
+// Smart stacking with collision detection
+let y = 24;
+for (let i = 0; i < 10; i++) {
+  const pos = { x: 0, y, z: 0 };
+  if (testPosition(pos, { x: 2, z: 2 })) {
+    createBrick({ position: pos, color: 'blue' });
+    y += 33;
+  } else {
+    console.log('Position occupied, finding free spot...');
+    const freePos = findFreePosition(pos, { x: 2, z: 2 });
+    if (freePos) createBrick({ position: freePos, color: 'green' });
+  }
+}
+\`\`\`
+
+Advanced (parallel animations):
+\`\`\`javascript
+// Multiple bricks moving simultaneously
+const ids = [];
+for (let i = 0; i < 5; i++) {
+  const id = createBrick({
+    position: { x: i * 50, y: 24, z: 0 },
+    color: \`hsl(\${i * 60}, 80%, 50%)\`
+  });
+  ids.push(id);
+}
+
+// Animate all in parallel
+await Promise.all(ids.map(id =>
+  animate(id).moveBy({ y: 100 }).wait(300).moveBy({ y: -100 }).run()
+));
+\`\`\`
 
 ${currentScript ? `\n\nCurrent script:\n\`\`\`javascript\n${currentScript}\n\`\`\`` : ''}
 
-Provide clear, concise JavaScript code examples. Use async/await for animations with createBrick().`;
+REMEMBER:
+- createBrick() returns ID string (or null if collision)
+- Use animate() for animations, not BrickAPI objects
+- Collision detection is ON by default (safe-by-default)
+- Always await animate().run()
+
+Provide clear, concise JavaScript code using the v2.0 API patterns above.`;
 
     let messagesToSend;
     if (isReasoningModel) {
