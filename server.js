@@ -63,8 +63,8 @@ app.post('/api/chat/script', async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    const model = process.env.OPENAI_MODEL || 'o1';
-    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3');
+    const model = process.env.OPENAI_MODEL || 'gpt-5.1';
+    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3') || model.startsWith('gpt-5');
 
     // Build system message based on mode
     let systemContent = `You are an AI assistant helping with CodeBlocks scripting. CodeBlocks is a LEGO-style 3D builder.
@@ -181,8 +181,8 @@ app.post('/api/chat/json', async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    const model = process.env.OPENAI_MODEL || 'o1';
-    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3');
+    const model = process.env.OPENAI_MODEL || 'gpt-5.1';
+    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3') || model.startsWith('gpt-5');
 
     // Build system message based on mode
     let systemContent = `You are an AI assistant helping with CodeBlocks JSON editing. CodeBlocks uses a JSON format to represent 3D brick scenes.
@@ -293,8 +293,8 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    const model = process.env.OPENAI_MODEL || 'o1';
-    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3');
+    const model = process.env.OPENAI_MODEL || 'gpt-5.1';
+    const isReasoningModel = model.startsWith('o1') || model.startsWith('o3') || model.startsWith('gpt-5');
 
     let messagesToSend;
     if (isReasoningModel && systemPrompt) {
@@ -364,6 +364,6 @@ app.use((req, res, next) => {
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`CodeBlocks server running on port ${PORT}`);
-  console.log(`OpenAI model: ${process.env.OPENAI_MODEL || 'o1'}`);
+  console.log(`OpenAI model: ${process.env.OPENAI_MODEL || 'gpt-5.1'}`);
   console.log(`Visit http://localhost:${PORT}`);
 });
