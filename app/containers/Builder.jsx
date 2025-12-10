@@ -43,160 +43,6 @@ class Builder extends React.Component {
     scriptUserModified: false,
   }
 
-  componentDidMount() {
-    // Autosave disabled - causing issues
-    // this.sceneInitTimer = setTimeout(() => {
-    //   this._loadAutosave();
-    // }, 1000);
-  }
-
-  componentWillUnmount() {
-    // Clear timers
-    if (this.autosaveTimer) {
-      clearTimeout(this.autosaveTimer);
-    }
-    if (this.sceneInitTimer) {
-      clearTimeout(this.sceneInitTimer);
-    }
-  }
-
-  // Autosave disabled - causing issues
-  // componentDidUpdate(prevProps, prevState) {
-  //   // Autosave when bricks or script changes
-  //   const bricksChanged = prevProps.bricks !== this.props.bricks;
-  //   const scriptChanged = prevState.scriptText !== this.state.scriptText;
-
-  //   if (bricksChanged || scriptChanged) {
-  //     this._scheduleAutosave();
-  //   }
-  // }
-
-  _scheduleAutosave = () => {
-    // Debounce autosave - only save after 2 seconds of no changes
-    if (this.autosaveTimer) {
-      clearTimeout(this.autosaveTimer);
-    }
-    this.autosaveTimer = setTimeout(() => {
-      this._autosave();
-    }, 2000);
-  }
-
-  _serializeBricks = (bricks) => {
-    // Extract only the serializable data from Brick objects
-    if (!Array.isArray(bricks)) {
-      return [];
-    }
-
-    return bricks.map((brick) => {
-      // Handle both Brick instances (with private properties) and plain objects (from loaded autosave)
-      // For Brick instances, private properties start with underscore: _color, _dimensions, etc.
-      // For plain objects from autosave, use the public properties: color, dimensions, etc.
-      const color = brick._color || brick.color;
-      const dimensions = brick._dimensions || brick.dimensions;
-      const translation = brick._translation !== undefined ? brick._translation : brick.translation;
-      const intersect = brick._intersect || brick.intersect;
-
-      return {
-        customId: brick.customId,
-        position: {
-          x: brick.position.x,
-          y: brick.position.y,
-          z: brick.position.z
-        },
-        rotation: {
-          y: brick.rotation.y
-        },
-        color: color,
-        dimensions: dimensions,
-        translation: translation,
-        // Store intersect data for recreation
-        intersect: intersect ? {
-          point: {
-            x: intersect.point.x,
-            y: intersect.point.y,
-            z: intersect.point.z
-          },
-          face: intersect.face ? {
-            normal: {
-              x: intersect.face.normal.x,
-              y: intersect.face.normal.y,
-              z: intersect.face.normal.z
-            }
-          } : null
-        } : null
-      };
-    });
-  }
-
-  _autosave = () => {
-    try {
-      const { bricks } = this.props;
-
-      // Serialize bricks to plain objects
-      const serializedBricks = this._serializeBricks(bricks);
-
-      const autosaveData = {
-        version: 1, // For future compatibility
-        script: this.state.scriptText || '',
-        bricks: serializedBricks,
-        timestamp: Date.now(),
-      };
-
-      localStorage.setItem('codeblocks_autosave', JSON.stringify(autosaveData));
-    } catch (err) {
-      console.error('Autosave failed:', err);
-      // Clear corrupted autosave
-      try {
-        localStorage.removeItem('codeblocks_autosave');
-      } catch (e) {
-        // Ignore - localStorage might be full or disabled
-      }
-    }
-  }
-
-  _loadAutosave = () => {
-    try {
-      const autosaveData = localStorage.getItem('codeblocks_autosave');
-      if (!autosaveData) {
-        return;
-      }
-
-      const parsed = JSON.parse(autosaveData);
-
-      if (!parsed || !parsed.bricks) {
-        throw new Error('Invalid autosave format');
-      }
-
-      // Validate data structure
-      if (!Array.isArray(parsed.bricks)) {
-        throw new Error('Invalid bricks data');
-      }
-
-      // Load script
-      if (parsed.script && parsed.script.trim()) {
-        this.setState({
-          scriptText: parsed.script,
-          scriptUserModified: true
-        });
-      }
-
-      // Load bricks
-      if (parsed.bricks.length > 0) {
-        // Use setScene to load the brick data
-        // The Scene component and redux will handle creating the actual Brick objects
-        this.props.setScene(parsed.bricks);
-      }
-    } catch (err) {
-      console.error('Failed to load autosave:', err);
-
-      // Clear corrupted autosave
-      try {
-        localStorage.removeItem('codeblocks_autosave');
-      } catch (e) {
-        // Ignore
-      }
-    }
-  }
 
   // Camera control methods for scripting API
   _setTopView = () => {
@@ -298,46 +144,75 @@ class Builder extends React.Component {
   }
 
   _handleLoadBuild = (build) => {
-    console.log('Loading build:', build);
+    const { setScene, resetScene } = this.props;
 
-    // Load the script into state first (don't open editor yet)
-    if (build.script) {
+    // Close build manager first
+    this.setState({ buildManagerOpen: false });
+
+    // Reset scene before loading
+    resetScene();
+
+    // Try script-first approach
+    const hasScript = build.script && build.script.trim();
+
+    if (hasScript) {
+      // Load script and attempt to execute
       this.setState({
         scriptText: build.script,
         scriptUserModified: true,
-        scriptEditorOpen: false,  // Keep editor closed for now
-        buildManagerOpen: false,  // Close build manager
+        scriptEditorOpen: false,
       }, () => {
-        // Callback runs after state is updated
-        // Now open the editor to mount the component and get the ref
+        // Open script editor and execute
         this.setState({ scriptEditorOpen: true }, () => {
-          // Wait a bit for component to fully mount
+          // Give editor time to mount
           setTimeout(() => {
-            console.log('Attempting to run script, ref:', this.scriptEditorRef);
             if (this.scriptEditorRef && this.scriptEditorRef._handleRun) {
-              this.scriptEditorRef._handleRun();
+              try {
+                this.scriptEditorRef._handleRun();
+              } catch (scriptError) {
+                console.error('Script execution failed, falling back to JSON:', scriptError);
+                this._loadFromJSON(build.json);
+              }
             } else {
-              console.error('ScriptEditor ref not available');
+              console.warn('ScriptEditor ref not available, falling back to JSON');
+              this._loadFromJSON(build.json);
             }
-          }, 150);
+          }, 200);
         });
       });
     } else {
-      // No script, just close the build manager
-      this.setState({ buildManagerOpen: false });
+      // No script, load from JSON directly
+      this._loadFromJSON(build.json);
+    }
+  }
+
+  _loadFromJSON = (jsonString) => {
+    const { setScene } = this.props;
+
+    if (!jsonString || jsonString.trim() === '') {
+      alert('This build has no script and no JSON data.');
+      return;
     }
 
-    // Load the JSON into the JSON editor (but don't execute it since script will recreate scene)
-    // The JSON is kept as a reference/backup
-    if (build.json) {
-      // Just store it in case user wants to view it in JSON editor
-      // Don't parse/execute it since the script will recreate the scene
-      this._loadedJSON = build.json;
+    try {
+      // Import deserializeBricks from storage utils
+      // We'll add this import at the top of the file
+      const parsed = JSON.parse(jsonString);
+
+      if (!Array.isArray(parsed)) {
+        throw new Error('Invalid JSON: must be an array');
+      }
+
+      // Apply to scene
+      setScene(parsed);
+    } catch (err) {
+      console.error('Failed to load JSON:', err);
+      alert(`Failed to load build from JSON: ${err.message}`);
     }
   }
 
   _handleSaveBuildSuccess = (buildName) => {
-    console.log(`Build "${buildName}" saved successfully`);
+    // Build saved successfully
   }
 
   _handleReset = () => {
@@ -470,7 +345,7 @@ class Builder extends React.Component {
           <BuildManager
             mode="popup"
             scriptText={this.state.scriptText}
-            jsonText={JSON.stringify(this._serializeBricks(bricks), null, 2)}
+            bricks={bricks}
             onLoadBuild={this._handleLoadBuild}
             onSaveSuccess={this._handleSaveBuildSuccess}
             onClose={this._toggleBuildManager}

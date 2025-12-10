@@ -27,38 +27,18 @@ class BrickPicker extends React.Component {
     this._handleLengthChange = this._handleLengthChange.bind(this);
     this._handleShapeTypeChange = this._handleShapeTypeChange.bind(this);
     this._addToRecent = this._addToRecent.bind(this);
-    this._loadRecentBricks = this._loadRecentBricks.bind(this);
   }
 
   componentDidMount() {
     document.addEventListener('mousedown', this._handleClickOutside);
-    this._loadRecentBricks();
   }
 
   componentWillUnmount() {
     document.removeEventListener('mousedown', this._handleClickOutside);
   }
 
-  _loadRecentBricks() {
-    try {
-      const saved = localStorage.getItem('codeblocks_recent_bricks');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Filter out any bricks with y=1 (from when customHeight defaulted to 1)
-        // These are corrupted and should not be used
-        const filtered = parsed.filter(brick => brick.y !== 1);
-        this.setState({ recentBricks: filtered });
-        // Save the filtered list back to localStorage
-        if (filtered.length !== parsed.length) {
-          localStorage.setItem('codeblocks_recent_bricks', JSON.stringify(filtered));
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load recent bricks:', e);
-    }
-  }
-
   _addToRecent(brick) {
+    // Runtime-only recent bricks (not persisted)
     const { recentBricks } = this.state;
 
     // Check if this exact brick already exists
@@ -75,12 +55,6 @@ class BrickPicker extends React.Component {
     const updated = [brick, ...recentBricks].slice(0, 8);
 
     this.setState({ recentBricks: updated });
-
-    try {
-      localStorage.setItem('codeblocks_recent_bricks', JSON.stringify(updated));
-    } catch (e) {
-      console.error('Failed to save recent bricks:', e);
-    }
   }
 
   render() {

@@ -25,43 +25,27 @@ class ColorPicker extends React.Component {
     const { background } = this.props;
     document.addEventListener('mousedown', this._handleClickOutside);
 
-    // Load recently picked colors from localStorage
-    const savedColors = this._loadRecentColors();
-
     this.setState({
       background,
-      recentColors: savedColors,
+      recentColors: [],
     });
   }
 
-  _loadRecentColors() {
-    try {
-      const saved = localStorage.getItem('recentColors');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  }
-
   _saveRecentColor(color) {
-    try {
-      const rgbaString = `rgba(${color.r},${color.g},${color.b},${color.a !== undefined ? color.a : 1})`;
-      let recent = this._loadRecentColors();
+    // Runtime-only recent colors (not persisted)
+    const rgbaString = `rgba(${color.r},${color.g},${color.b},${color.a !== undefined ? color.a : 1})`;
+    let recent = this.state.recentColors || [];
 
-      // Remove if already exists
-      recent = recent.filter(c => c !== rgbaString);
+    // Remove if already exists
+    recent = recent.filter(c => c !== rgbaString);
 
-      // Add to beginning
-      recent.unshift(rgbaString);
+    // Add to beginning
+    recent.unshift(rgbaString);
 
-      // Keep only last 10 colors
-      recent = recent.slice(0, 10);
+    // Keep only last 10 colors
+    recent = recent.slice(0, 10);
 
-      localStorage.setItem('recentColors', JSON.stringify(recent));
-      this.setState({ recentColors: recent });
-    } catch (e) {
-      // localStorage might be disabled
-    }
+    this.setState({ recentColors: recent });
   }
 
   componentWillUnmount() {

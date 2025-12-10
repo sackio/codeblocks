@@ -1,5 +1,12 @@
 import React from 'react';
 import styles from 'styles/components/build-manager';
+import {
+  getAllBuilds,
+  saveBuild,
+  deleteBuild,
+  handleStorageError,
+  initStorage,
+} from 'utils/storage';
 
 class BuildManager extends React.Component {
   state = {
@@ -10,69 +17,52 @@ class BuildManager extends React.Component {
   }
 
   componentDidMount() {
+    // Initialize storage on mount
+    initStorage();
     this._loadBuilds();
   }
 
   _loadBuilds = () => {
     try {
-      const savedBuilds = localStorage.getItem('codeblocks_builds');
-      const builds = savedBuilds ? JSON.parse(savedBuilds) : [];
+      const builds = getAllBuilds();
       this.setState({ builds });
     } catch (err) {
       console.error('Failed to load builds:', err);
+      handleStorageError(err);
       this.setState({ builds: [] });
     }
   }
 
-  _saveBuilds = (builds) => {
-    try {
-      localStorage.setItem('codeblocks_builds', JSON.stringify(builds));
-      this.setState({ builds });
-    } catch (err) {
-      console.error('Failed to save builds:', err);
-      this.setState({ saveError: 'Failed to save build. Storage may be full.' });
-    }
-  }
-
   _handleSave = () => {
-    const { buildName, builds } = this.state;
-    const { scriptText, jsonText } = this.props;
+    const { buildName } = this.state;
+    const { scriptText, bricks } = this.props;
 
     if (!buildName.trim()) {
       this.setState({ saveError: 'Please enter a build name' });
       return;
     }
 
-    // Check if name already exists
-    const existingIndex = builds.findIndex(b => b.name === buildName.trim());
+    try {
+      // Save build using storage utility
+      // Note: bricks should be passed from Builder, not jsonText
+      const savedBuild = saveBuild(buildName.trim(), scriptText || '', bricks || []);
 
-    const newBuild = {
-      name: buildName.trim(),
-      script: scriptText || '',
-      json: jsonText || '',
-      timestamp: Date.now(),
-    };
+      // Reload builds list
+      this._loadBuilds();
 
-    let updatedBuilds;
-    if (existingIndex >= 0) {
-      // Overwrite existing build
-      updatedBuilds = [...builds];
-      updatedBuilds[existingIndex] = newBuild;
-    } else {
-      // Add new build
-      updatedBuilds = [...builds, newBuild];
-    }
+      this.setState({
+        showSaveDialog: false,
+        buildName: '',
+        saveError: null
+      });
 
-    this._saveBuilds(updatedBuilds);
-    this.setState({
-      showSaveDialog: false,
-      buildName: '',
-      saveError: null
-    });
-
-    // Show success message briefly
-    if (this.props.onSaveSuccess) {
-      this.props.onSaveSuccess(buildName.trim());
+      // Show success message
+      if (this.props.onSaveSuccess) {
+        this.props.onSaveSuccess(buildName.trim());
+      }
+    } catch (err) {
+      console.error('Failed to save build:', err);
+      this.setState({ saveError: err.message || 'Failed to save build' });
     }
   }
 
@@ -83,14 +73,24 @@ class BuildManager extends React.Component {
     }
   }
 
-  _handleDelete = (buildName) => {
+  _handleDelete = (buildId, buildName) => {
     if (!confirm(`Delete build "${buildName}"?`)) {
       return;
     }
 
-    const { builds } = this.state;
-    const updatedBuilds = builds.filter(b => b.name !== buildName);
-    this._saveBuilds(updatedBuilds);
+    try {
+      const deleted = deleteBuild(buildId);
+
+      if (deleted) {
+        // Reload builds list
+        this._loadBuilds();
+      } else {
+        alert('Build not found');
+      }
+    } catch (err) {
+      console.error('Failed to delete build:', err);
+      handleStorageError(err);
+    }
   }
 
   _openSaveDialog = () => {
@@ -262,14 +262,17 @@ class BuildManager extends React.Component {
           </div>
         ) : (
           <div className={styles.buildList}>
-            {builds.map((build, index) => (
-              <div key={index} className={styles.buildItem}>
+            {builds.map((build) => (
+              <div key={build.id} className={styles.buildItem}>
                 <div className={styles.buildInfo}>
                   <div className={styles.buildName}>{build.name}</div>
                   <div className={styles.buildDate}>{this._formatDate(build.timestamp)}</div>
                   <div className={styles.buildStats}>
                     {build.script && <span><i className="ion-code" /> Script</span>}
                     {build.json && <span><i className="ion-document-text" /> JSON</span>}
+                    {build.metadata && build.metadata.brickCount > 0 && (
+                      <span><i className="ion-cube" /> {build.metadata.brickCount} bricks</span>
+                    )}
                   </div>
                 </div>
                 <div className={styles.buildActions}>
@@ -281,7 +284,7 @@ class BuildManager extends React.Component {
                   </button>
                   <button
                     className={styles.deleteButton}
-                    onClick={() => this._handleDelete(build.name)}
+                    onClick={() => this._handleDelete(build.id, build.name)}
                     title="Delete this build">
                     <i className="ion-trash-a" />
                   </button>
