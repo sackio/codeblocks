@@ -3,7 +3,7 @@ import React from 'react';
 import styles from 'styles/components/button';
 
 
-const Button = ({ text, icon, active, onClick, disabled }) => {
+const Button = ({ text, icon, active, onClick, disabled, dataMode }) => {
   const handleClick = () => {
     if (!disabled && onClick) {
       onClick();
@@ -17,8 +17,13 @@ const Button = ({ text, icon, active, onClick, disabled }) => {
     className = styles.disabled;
   }
 
+  const dataAttrs = {};
+  if (dataMode) {
+    dataAttrs['data-mode'] = dataMode;
+  }
+
   return (
-    <div className={className} onClick={handleClick}>
+    <div className={className} onClick={handleClick} {...dataAttrs}>
       <div className={styles.icon}>
         <i className={`ion-${icon}`} />
       </div>

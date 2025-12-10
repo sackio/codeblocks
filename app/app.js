@@ -9,6 +9,7 @@ import Builder from 'containers/Builder';
 import setupStore from 'store';
 
 import 'styles/app';
+import 'styles/tutorial-walkthrough';
 
 
 function enableHMR(fn) {

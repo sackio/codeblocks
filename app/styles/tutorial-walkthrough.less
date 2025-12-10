@@ -1,0 +1,312 @@
+/* CodeBlocks Tutorial Walkthrough - React Joyride Styling */
+/* Purple/Orange Kid-Friendly Theme */
+
+/* Override Joyride default styles with CodeBlocks theme */
+
+/* Tooltip container - purple gradient */
+.__floater__open .react-joyride__tooltip {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  padding: 0;
+  animation: popoverAppear 0.3s ease-out;
+}
+
+@keyframes popoverAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Tooltip header styling */
+.react-joyride__tooltip h3 {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0 0 10px 0;
+  color: #ffd700;
+}
+
+/* Tooltip content styling */
+.react-joyride__tooltip p {
+  margin: 0 0 10px 0;
+  line-height: 1.6;
+}
+
+.react-joyride__tooltip p:last-child {
+  margin-bottom: 0;
+}
+
+.react-joyride__tooltip ul {
+  margin: 10px 0 10px 20px;
+  padding: 0;
+  list-style-type: disc;
+}
+
+.react-joyride__tooltip li {
+  margin: 5px 0;
+  line-height: 1.5;
+}
+
+.react-joyride__tooltip strong,
+.react-joyride__tooltip code {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.react-joyride__tooltip pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border-radius: 4px;
+  color: #ffd700;
+  font-size: 13px;
+  margin: 10px 0;
+  overflow-x: auto;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+.react-joyride__tooltip code {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 14px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+}
+
+/* Beacon - pulsing orange animation */
+.react-joyride__beacon {
+  animation: pulse-orange 1s infinite;
+}
+
+@keyframes pulse-orange {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 15px rgba(255, 152, 0, 0);
+  }
+}
+
+/* Beacon inner - orange color */
+.react-joyride__beacon span {
+  background-color: #FF9800;
+  border: 2px solid #FF9800;
+}
+
+/* Spotlight (highlighted area) */
+.react-joyride__spotlight {
+  border-radius: 4px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 152, 0, 0.5);
+}
+
+/* Buttons - orange primary, white secondary */
+.react-joyride__tooltip button[data-action="primary"] {
+  background: #FF9800 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  font-size: 15px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.react-joyride__tooltip button[data-action="primary"]:hover,
+.react-joyride__tooltip button[data-action="primary"]:focus {
+  background: #ff8555 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.react-joyride__tooltip button[data-action="primary"]:active {
+  transform: translateY(0) !important;
+}
+
+/* Back button */
+.react-joyride__tooltip button[data-action="back"] {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  font-size: 15px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  margin-right: 10px !important;
+}
+
+.react-joyride__tooltip button[data-action="back"]:hover,
+.react-joyride__tooltip button[data-action="back"]:focus {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px) !important;
+}
+
+.react-joyride__tooltip button[data-action="back"]:active {
+  transform: translateY(0) !important;
+}
+
+/* Skip button */
+.react-joyride__tooltip button[data-action="skip"] {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.react-joyride__tooltip button[data-action="skip"]:hover,
+.react-joyride__tooltip button[data-action="skip"]:focus {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Close button */
+.react-joyride__tooltip button[data-action="close"] {
+  background: transparent !important;
+  color: white !important;
+  font-size: 24px !important;
+  opacity: 0.7 !important;
+  box-shadow: none !important;
+  padding: 5px !important;
+  margin: 0 !important;
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.react-joyride__tooltip button[data-action="close"]:hover,
+.react-joyride__tooltip button[data-action="close"]:focus {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  transform: none !important;
+}
+
+/* Progress text */
+.react-joyride__tooltip__footer > div:first-child {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: normal;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .__floater__open .react-joyride__tooltip {
+    max-width: 90vw;
+    font-size: 14px;
+  }
+
+  .react-joyride__tooltip h3 {
+    font-size: 18px;
+  }
+
+  .react-joyride__tooltip p {
+    font-size: 14px;
+  }
+
+  .react-joyride__tooltip button {
+    font-size: 14px !important;
+    padding: 8px 16px !important;
+  }
+
+  .react-joyride__tooltip pre {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
+
+/* Tablet responsive styles */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .__floater__open .react-joyride__tooltip {
+    max-width: 350px;
+  }
+}
+
+/* Smooth animations for step transitions */
+.react-joyride__tooltip {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Arrow styling - matches tooltip gradient */
+.react-joyride__tooltip::before {
+  border-color: #667eea transparent transparent transparent;
+}
+
+/* Overlay background */
+.react-joyride__overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Ensure tooltip is above everything */
+.react-joyride__tooltip {
+  z-index: 10001;
+}
+
+.react-joyride__spotlight {
+  z-index: 10000;
+}
+
+.react-joyride__overlay {
+  z-index: 9999;
+}
+
+/* Focus ring removal for cleaner look */
+.react-joyride__tooltip button:focus {
+  outline: none;
+}
+
+/* Beacon animation on hover */
+.react-joyride__beacon:hover span {
+  background-color: #ff8555;
+  border-color: #ff8555;
+}
+
+/* Additional accessibility - high contrast mode */
+@media (prefers-contrast: high) {
+  .__floater__open .react-joyride__tooltip {
+    border: 2px solid white;
+  }
+
+  .react-joyride__tooltip button {
+    border: 2px solid white !important;
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes popoverAppear {
+    from, to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes pulse-orange {
+    from, to {
+      box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7);
+    }
+  }
+
+  .react-joyride__tooltip button:hover,
+  .react-joyride__tooltip button:focus {
+    transform: none !important;
+  }
+}

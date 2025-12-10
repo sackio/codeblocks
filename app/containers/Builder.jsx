@@ -28,8 +28,7 @@ import Scene from 'components/engine/Scene';
 import Topbar from 'components/Topbar';
 import JSONEditor from 'components/JSONEditor';
 import ScriptEditor from 'components/ScriptEditor';
-import InstructionsModal from 'components/InstructionsModal';
-import Tutorial from 'components/Tutorial';
+import TutorialWalkthrough from 'components/TutorialWalkthrough';
 import BuildManager from 'components/BuildManager';
 
 import styles from 'styles/containers/builder';
@@ -39,15 +38,12 @@ class Builder extends React.Component {
   state = {
     jsonEditorOpen: false,
     scriptEditorOpen: false,
-    instructionsOpen: false,
     buildManagerOpen: false,
     scriptText: '',
     scriptUserModified: false,
   }
 
   componentDidMount() {
-    this.tutorial = new Tutorial();
-
     // Autosave disabled - causing issues
     // this.sceneInitTimer = setTimeout(() => {
     //   this._loadAutosave();
@@ -293,10 +289,6 @@ class Builder extends React.Component {
     this.setState({ scriptEditorOpen: !this.state.scriptEditorOpen });
   }
 
-  _toggleInstructions = () => {
-    this.setState({ instructionsOpen: !this.state.instructionsOpen });
-  }
-
   _toggleBuildManager = () => {
     this.setState({ buildManagerOpen: !this.state.buildManagerOpen });
   }
@@ -355,9 +347,21 @@ class Builder extends React.Component {
   }
 
   _handleStartTutorial = () => {
-    if (this.tutorial) {
-      this.tutorial.start();
+    if (this.tutorialRef) {
+      this.tutorialRef.start();
     }
+  }
+
+  _handleResetAfterTutorial = () => {
+    this.setState({
+      mode: 'build',
+      scriptEditorOpen: false,
+      jsonEditorOpen: false,
+    });
+  }
+
+  _handleChangeMode = (mode) => {
+    this.props.setMode(mode);
   }
 
   render() {
@@ -381,10 +385,18 @@ class Builder extends React.Component {
       canUndo,
       canRedo
     } = this.props;
-    const { jsonEditorOpen, scriptEditorOpen, instructionsOpen, buildManagerOpen } = this.state;
+    const { jsonEditorOpen, scriptEditorOpen, buildManagerOpen } = this.state;
 
     return (
       <div className={styles.builder}>
+        <TutorialWalkthrough
+          ref={(ref) => { this.tutorialRef = ref; }}
+          mode={mode}
+          onSetMode={this._handleChangeMode}
+          onOpenScriptEditor={this._toggleScriptEditor}
+          onCloseScriptEditor={this._toggleScriptEditor}
+          onReset={this._handleResetAfterTutorial}
+        />
         <Topbar
           onClickSetMode={setMode}
           onClickSetColor={setColor}
@@ -399,7 +411,6 @@ class Builder extends React.Component {
           jsonEditorOpen={jsonEditorOpen}
           onClickToggleScript={this._toggleScriptEditor}
           scriptEditorOpen={scriptEditorOpen}
-          onClickToggleInstructions={this._toggleInstructions}
           onClickStartTutorial={this._handleStartTutorial}
           onClickToggleBuildManager={this._toggleBuildManager}
           buildManagerOpen={buildManagerOpen}
@@ -453,11 +464,6 @@ class Builder extends React.Component {
             scriptUserModified={this.state.scriptUserModified}
             onScriptChange={this._handleScriptChange}
             captureScreenshot={this._captureScreenshot}
-          />
-        )}
-        {instructionsOpen && (
-          <InstructionsModal
-            onClose={this._toggleInstructions}
           />
         )}
         {buildManagerOpen && (

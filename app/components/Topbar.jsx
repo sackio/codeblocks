@@ -72,17 +72,20 @@ class Topbar extends React.Component {
               active={mode === 'build'}
               onClick={() => { onClickSetMode('build'); this._closeMobileMenu(); }}
               icon="hammer"
-              text="Build" />
+              text="Build"
+              dataMode="build" />
             <Button
               active={mode === 'edit'}
               onClick={() => { onClickSetMode('edit'); this._closeMobileMenu(); }}
               icon="edit"
-              text="Edit" />
+              text="Edit"
+              dataMode="edit" />
             <Button
               active={mode === 'paint'}
               onClick={() => { onClickSetMode('paint'); this._closeMobileMenu(); }}
               icon="paintbrush"
-              text="Paint" />
+              text="Paint"
+              dataMode="paint" />
           </div>
           <div className={styles.section}>
             <ColorPicker background={color} handleSetColor={onClickSetColor} />
@@ -106,7 +109,7 @@ class Topbar extends React.Component {
               icon="information-circled"
               text="Tutorial" />
             <Button
-              onClick={() => { onClickToggleInstructions(); this._closeMobileMenu(); }}
+              onClick={() => { onClickStartTutorial(); this._closeMobileMenu(); }}
               icon="help-circled"
               text="Help" />
             <Button
