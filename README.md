@@ -186,7 +186,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-CodeBlocks is built with:
+**CodeBlocks** is built upon the foundation of [Brick Builder](https://github.com/nicmosc/brick-builder) by Nicolas Moscaritolo. We're grateful for the original work that made this project possible.
+
+**Built with:**
 
 - **React** - UI framework
 - **Three.js** - 3D rendering engine
